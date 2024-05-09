@@ -17,3 +17,12 @@ def notfound(string: str, not_val: str) -> int:
     for ind, char in enumerate(string):
         if char != not_val:
             return ind
+
+
+def max_string(list_of_strings: list[str]) -> int:
+    if len(list_of_strings) == 0:
+        return 0
+    try:
+        return max(int(string) for string in list_of_strings)
+    except ValueError:
+        return 0

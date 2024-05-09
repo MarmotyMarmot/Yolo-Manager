@@ -1,22 +1,23 @@
 import os
-
 import cv2
 
+from colorsys import hsv_to_rgb
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QScrollArea, QWidget, QFileDialog, \
-    QCheckBox, QTableWidget, QTableWidgetItem, QSizePolicy, QHeaderView, QAbstractScrollArea
+    QCheckBox
 
-from yaml_editor import YAMLEditor
-from small_custom_widgets import InteractiveImage, LabelListButton
+from UI.yaml_editor import YAMLEditor
+from UI.small_custom_widgets import LabelListButton
+from UI.interactive_image import InteractiveImage
 
-from tools import notfound
+from tools import max_string
 
 
 class LabellerUI(QDialog):
     def __init__(self):
         super().__init__()
-        self.available_classes = []
+        self.available_classes = dict()
         self.selected_class = 0
         self.active_labels = []
         self.tmp_dir = 'tmp'
@@ -57,7 +58,7 @@ class LabellerUI(QDialog):
         vertical_layout_middle = QVBoxLayout()
         self.image_label = InteractiveImage(self.new_label)
         self.image_label.setFixedSize(int(screen_size.width() / 2), int(screen_size.height() / 2))
-        self.image_label.change_image(cv2.imread('test.png'))
+        self.image_label.change_image(cv2.imread('UI/test.png'))
         vertical_layout_middle.addWidget(self.image_label)
 
         vertical_layout_right = QVBoxLayout()
@@ -105,6 +106,19 @@ class LabellerUI(QDialog):
 
         if len(yaml_file) > 1:
             print('More than one .yaml file found')
+        elif len(yaml_file) == 0:
+            print("No .yaml file found")
+            max_class_number = 0
+            for label_file in self.label_files:
+                with open(f"{self.database_path}/{label_file}", "r") as label_reader:
+                    labels = label_reader.readlines()
+                    for label in labels:
+                        if int(label.split(" ")[0]) > max_class_number:
+                            max_class_number = int(label.split(" ")[0])
+
+            for class_number in range(max_class_number):
+                self.available_classes.update({f"{class_number}": f"{class_number}"})
+
         else:
             self.yaml_path = yaml_file[0]
             self.read_yaml()
@@ -150,7 +164,13 @@ class LabellerUI(QDialog):
             print(f'Let the user know that the database is invalid and the {invalid_files} are causing the problems')
 
     def read_yaml(self):
-        print('READING YAML FILE')
+        with open(f"{self.database_path}/{self.yaml_path}", 'r') as yaml_file:
+            yaml_contents = yaml_file.readlines()
+            yaml_contents = yaml_contents[yaml_contents.index("names:\n") + 1:]
+            for yaml_line in yaml_contents:
+                number_and_class = yaml_line.strip().replace("\n", "")
+                object_number, object_class = number_and_class.split(": ")
+                self.available_classes.update({object_number: object_class})
 
     def modify_classes(self):
         if self.yaml_path != '':
@@ -171,10 +191,26 @@ class LabellerUI(QDialog):
         self.read_image()
         self.read_labels()
         self.update_labels_list()
+        self.paint_labels()
 
-    def new_label(self, start_pos, end_pos):
-        print(f"Received a new label of class {self.selected_class} at coordinates:\nLU {start_pos} RB {end_pos}")
+    def new_label(self, x_center, y_center, width, height):
+        self.active_labels.append(f"{self.selected_class} {x_center} {y_center} {width} {height}")
+        self.update_labels_list()
+        self.paint_labels()
         # Transform it to a label and add to self.active_labels, after that, just update the labels list and the UI
+
+    def paint_labels(self):
+        for label in self.active_labels:
+            label_class = int(label.split(" ")[0])
+            class_number = max_string(list(self.available_classes.keys()))
+            if class_number == 0:
+                hue = 0
+            else:
+                hue = label_class / class_number
+
+            rgb_normalized = hsv_to_rgb(hue, 0.95, 1)
+            rgb_col = [int(col * 255) for col in rgb_normalized]
+            self.image_label.paint_rect_from_label(label, rgb_col)
 
     def read_image(self):
         self.image_label.change_image(cv2.imread(f"{self.database_path}/{self.image_files[self.image_index]}"))
@@ -203,6 +239,7 @@ class LabellerUI(QDialog):
             widget.close()
             if text in self.active_labels:
                 self.active_labels.remove(text)
-                print(f"{text} removed")
+                self.image_label.clear_labels()
+                self.paint_labels()
 
 
