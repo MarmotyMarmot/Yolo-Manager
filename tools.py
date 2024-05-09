@@ -10,3 +10,10 @@ def q_pixmap_from_cv_img(cv_img: ndarray) -> QPixmap:
     bytes_per_line = 3 * width
     q_image = QImage(cv_img.data, width, height, bytes_per_line, QImage.Format.Format_BGR888)
     return QPixmap.fromImage(q_image)
+
+
+def notfound(string: str, not_val: str) -> int:
+    """Return the first index in string where not_val character doesn't occur"""
+    for ind, char in enumerate(string):
+        if char != not_val:
+            return ind

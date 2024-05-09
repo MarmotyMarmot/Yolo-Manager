@@ -8,6 +8,8 @@ from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QPushButton, QLab
     QCheckBox, QTableWidget, QTableWidgetItem, QSizePolicy, QHeaderView, QAbstractScrollArea
 from customWidgets import InteractiveImage, LabelListButton
 
+from tools import notfound
+
 
 class LabellerUI(QDialog):
     def __init__(self):
@@ -110,20 +112,40 @@ class LabellerUI(QDialog):
     def verify_database(self):
         print('DATABASE VERIFICATION')
         verify_flag = True
+        invalid_files = []
         if len(self.label_files) == 0:
             print('Nothing to verify')
         else:
             images_without_extension = [file[:file.index(".")] for file in self.image_files]
             for file in self.label_files:
+                with open(f"{self.database_path}/{file}", "r") as label_reader:
+                    label_contents = label_reader.readlines()
+
+                for line in label_contents:
+                    line_as_list = line.replace("\n", "").split(" ")
+                    if len(line_as_list) != 5:
+                        verify_flag = False
+                        invalid_files.append(file)
+
+                    for number in line_as_list:
+                        try:
+                            float(number)
+                        except ValueError:
+                            try:
+                                int(number)
+                            except ValueError:
+                                verify_flag = False
+                                invalid_files.append(file)
+
                 without_extension = file[:file.index(".")]
                 if without_extension not in images_without_extension:
                     verify_flag = False
-                    break
+                    invalid_files.append(file)
 
         if verify_flag:
             print('Let the user know that the database is valid')
         else:
-            print('Let the user know that the database is invalid')
+            print(f'Let the user know that the database is invalid and the {invalid_files} are causing the problems')
 
     def read_yaml(self):
         print('READING YAML FILE')
@@ -206,7 +228,7 @@ class YAMLEditor(QWidget):
             yaml_contents = yaml_contents[yaml_contents.index("names:\n") + 1:]
             for ind, yaml_line in enumerate(yaml_contents):
                 number_and_class = yaml_line.strip().replace("\n", "")
-                object_number, object_class = number_and_class.split(":")
+                object_number, object_class = number_and_class.split(": ")
 
                 self.yolo_classes.update({object_number.strip(): object_class.strip()})
                 row_count = self.yolo_table.rowCount()
@@ -234,16 +256,24 @@ class YAMLEditor(QWidget):
         yaml_contents = []
         with open(f"{self.database_path}/{self.yaml_path}", 'r') as yaml_reader:
             yaml_contents = yaml_reader.readlines()
+
         yaml_contents = yaml_contents[yaml_contents.index("names:\n") + 1:]
-
         new_yaml_contents = []
-
         for line in yaml_contents:
-            line_as_list = line.split(" ")
-            line_as_list[0] = self.class_numbers_dict[line_as_list[0]]
-            new_yaml_contents.append(" ".join(line_as_list))
+            line_as_list = line.strip().replace("\n", "").split(": ")
+            space_num = notfound(line, " ")
 
-        # print(yaml_contents)
+            if line_as_list[0] in self.class_numbers_dict.keys():
+                line_as_list[0] = self.class_numbers_dict[line_as_list[0]]
+
+            if line_as_list[1] in self.class_names_dict.keys():
+                line_as_list[1] = self.class_names_dict[line_as_list[1]]
+
+            new_yaml_contents.append(space_num * " " + ": ".join(line_as_list) + "\n")
+
+        with open(f"{self.database_path}/{self.yaml_path}", 'w') as yaml_writer:
+            yaml_writer.writelines(self.yaml_header)
+            yaml_writer.writelines(new_yaml_contents)
 
     def overwrite_database(self):
         for label_file in self.labels_path:
