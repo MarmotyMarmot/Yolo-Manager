@@ -1,6 +1,6 @@
 import sys
 
-from UI import LabellerUI
+from labeller_ui import LabellerUI
 from PyQt6.QtWidgets import QApplication
 
 
