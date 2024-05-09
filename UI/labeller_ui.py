@@ -64,12 +64,15 @@ class LabellerUI(QDialog):
         vertical_layout_right = QVBoxLayout()
         vertical_layout_right.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        self.save_button = QPushButton("Save")
         self.next_button = QPushButton("Next")
         self.prev_button = QPushButton("Previous")
 
+        self.save_button.clicked.connect(self.save_labels)
         self.next_button.clicked.connect(self.next_image_and_labels)
         self.prev_button.clicked.connect(self.previous_image_and_labels)
 
+        vertical_layout_right.addWidget(self.save_button)
         vertical_layout_right.addWidget(self.next_button)
         vertical_layout_right.addWidget(self.prev_button)
 
@@ -175,17 +178,21 @@ class LabellerUI(QDialog):
     def modify_classes(self):
         if self.yaml_path != '':
             self.yaml_editor = YAMLEditor(self.database_path, self.yaml_path, self.label_files)
-            print('OPEN UP A DIALOG WHICH ALLOWS FOR AN EASIER YAML MODIFICATION')
 
     def next_image_and_labels(self):
         if not self.image_index >= len(self.image_files) - 1:
+            self.save_labels()
             self.image_index += 1
             self.update_ui()
 
     def previous_image_and_labels(self):
         if not self.image_index <= 0:
+            self.save_labels()
             self.image_index -= 1
             self.update_ui()
+
+    def save_labels(self):
+        print('OVERWRITING LABELS')
 
     def update_ui(self):
         self.read_image()
@@ -197,7 +204,6 @@ class LabellerUI(QDialog):
         self.active_labels.append(f"{self.selected_class} {x_center} {y_center} {width} {height}")
         self.update_labels_list()
         self.paint_labels()
-        # Transform it to a label and add to self.active_labels, after that, just update the labels list and the UI
 
     def paint_labels(self):
         for label in self.active_labels:
@@ -241,5 +247,3 @@ class LabellerUI(QDialog):
                 self.active_labels.remove(text)
                 self.image_label.clear_labels()
                 self.paint_labels()
-
-
