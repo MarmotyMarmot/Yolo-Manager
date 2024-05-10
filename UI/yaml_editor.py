@@ -6,6 +6,7 @@ from tools import notfound
 
 
 class YAMLEditor(QWidget):
+    # TODO docstring and comments
     def __init__(self, database_path, yaml_path, labels_path):
         super().__init__()
         self.database_path = database_path

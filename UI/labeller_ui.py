@@ -4,17 +4,18 @@ import cv2
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QScrollArea, QWidget, QFileDialog, \
-    QCheckBox
+    QCheckBox, QSizePolicy
 
 from UI.yaml_editor import YAMLEditor
 from UI.small_custom_widgets import LabelListButton, StringSpinBox
 from UI.interactive_image import InteractiveImage
 
-from tools import max_string, rgb_to_bgr, rgb_from_scale
+from tools import max_string, rgb_to_bgr, rgb_from_scale, directory_checkout, find_string_part_in_list
 
 
 class LabellerUI(QDialog):
     def __init__(self):
+        # TODO docstring and comments
         super().__init__()
         self.available_classes = dict()
         self.selected_class = 0
@@ -32,27 +33,42 @@ class LabellerUI(QDialog):
         self.show()
 
     def resizeEvent(self, event):
+        # TODO docstring and comments
         new_size = self.size()
-        self.image_label.setFixedSize(int(new_size.width() / 1.3), int(new_size.height() / 1.3))
+        self.image_label.setFixedSize(int(new_size.width() / 1.5), int(new_size.height() / 1.1))
+
         if self.database_path != '':
             self.update_ui()
 
+    # noinspection PyUnresolvedReferences
     def layout_setup(self):
+        # TODO docstring and comments
         screen_size = QGuiApplication.primaryScreen().size()
+        self.setStyleSheet('background-color: rgb(228, 219, 255);')
         horizontal_layout = QHBoxLayout()
 
+        # Left part setup
+        vertical_widget_left = QWidget()
+        vertical_widget_left.setStyleSheet('background-color: rgb(192, 173, 255);')
         vertical_layout_left = QVBoxLayout()
+        vertical_widget_left.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         vertical_layout_left.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.read_dtbs_button = QPushButton("Read database")
-        self.read_dtbs_button.clicked.connect(self.read_database)
 
-        self.verify_dtbs_button = QPushButton("Verify database")
-        self.verify_dtbs_button.clicked.connect(self.verify_database)
+        self.read_database_button = QPushButton("Read database")
+        self.read_database_button.setStyleSheet("background-color: rgb(0, 255, 0);")
+        self.read_database_button.clicked.connect(self.read_database)
+
+        self.verify_database_button = QPushButton("Verify database")
+        self.verify_database_button.clicked.connect(self.verify_database)
 
         self.modify_classes_button = QPushButton("Modify classes")
         self.modify_classes_button.clicked.connect(self.modify_classes)
 
+        self.prepare_for_training_button = QPushButton("Prepare for training")
+        self.prepare_for_training_button.clicked.connect(self.prepare_for_training)
+
         self.class_spin_box = StringSpinBox()
+        self.class_spin_box.setStyleSheet("background-color: rgb(228, 219, 255);")
 
         self.labels_on_checkbox = QCheckBox("Show labels")
         self.save_on_change_checkbox = QCheckBox("Save on change")
@@ -60,20 +76,28 @@ class LabellerUI(QDialog):
         self.labels_on_checkbox.setChecked(True)
         self.labels_on_checkbox.checkStateChanged.connect(self.toggle_editing)
 
-        vertical_layout_left.addWidget(self.read_dtbs_button)
-        vertical_layout_left.addWidget(self.verify_dtbs_button)
+        vertical_layout_left.addWidget(self.read_database_button)
+        vertical_layout_left.addWidget(self.verify_database_button)
         vertical_layout_left.addWidget(self.modify_classes_button)
+        vertical_layout_left.addWidget(self.prepare_for_training_button)
         vertical_layout_left.addWidget(self.class_spin_box)
         vertical_layout_left.addWidget(self.labels_on_checkbox)
         vertical_layout_left.addWidget(self.save_on_change_checkbox)
         vertical_layout_left.addWidget(self.lock_editing_checkbox)
 
+        # Middle part setup
+        vertical_widget_middle = QWidget()
+        vertical_widget_middle.setStyleSheet('background-color: rgb(228, 219, 255);')
         vertical_layout_middle = QVBoxLayout()
         self.image_label = InteractiveImage(self.new_label)
         self.image_label.setFixedSize(int(screen_size.width() / 2), int(screen_size.height() / 2))
         self.image_label.change_image(cv2.imread('UI/test.png'))
         vertical_layout_middle.addWidget(self.image_label)
 
+        # Right part setup
+        vertical_widget_right = QWidget()
+        vertical_widget_right.setStyleSheet('background-color: rgb(192, 173, 255);')
+        vertical_widget_right.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
         vertical_layout_right = QVBoxLayout()
         vertical_layout_right.setAlignment(Qt.AlignmentFlag.AlignTop)
 
@@ -102,22 +126,32 @@ class LabellerUI(QDialog):
 
         vertical_layout_right.addWidget(label_list_scroll)
 
-        horizontal_layout.addLayout(vertical_layout_left)
-        horizontal_layout.addLayout(vertical_layout_middle)
-        horizontal_layout.addLayout(vertical_layout_right)
+        vertical_widget_left.setLayout(vertical_layout_left)
+        vertical_widget_middle.setLayout(vertical_layout_middle)
+        vertical_widget_right.setLayout(vertical_layout_right)
+
+        horizontal_layout.addWidget(vertical_widget_left)
+        horizontal_layout.addWidget(vertical_widget_middle)
+        horizontal_layout.addWidget(vertical_widget_right)
 
         self.setLayout(horizontal_layout)
 
     def toggle_editing(self):
+        # TODO docstring
         self.lock_editing_checkbox.setEnabled(self.labels_on_checkbox.isChecked())
 
     def read_database(self):
-        print('READING DATABASE')
+        # TODO docstring and comments
         if len(self.image_files) != 0:
             print('WARN USER ABOUT CHANGING AND SAVING THE OLD DATABASE')
 
         self.database_path = QFileDialog.getExistingDirectory(self, "Select Database Directory")
+        if self.database_path == '':
+            return None
+
+        self.read_database_button.setStyleSheet("")
         all_files = os.listdir(self.database_path)
+
         self.image_files = [file for file in all_files if
                             file.endswith('.png') or file.endswith('.jpg') or file.endswith('.jpeg')]
         self.label_files = [file for file in all_files if file.endswith('.txt')]
@@ -152,6 +186,7 @@ class LabellerUI(QDialog):
         self.update_ui()
 
     def verify_database(self):
+        # TODO docstring and comments
         print('DATABASE VERIFICATION')
         verify_flag = True
         invalid_files = []
@@ -189,7 +224,37 @@ class LabellerUI(QDialog):
         else:
             print(f'Let the user know that the database is invalid and the {invalid_files} are causing the problems')
 
+    def prepare_for_training(self):
+        # TODO docstring and comments
+        if self.database_path != '':
+            # Get the relative paths saved in the yaml file
+            with open(f"{self.database_path}/{self.yaml_path}", "r") as yaml_reader:
+                yaml_contents = yaml_reader.readlines()
+            _, train_path_line = find_string_part_in_list("train:", yaml_contents)
+            _, val_path_line = find_string_part_in_list("val:", yaml_contents)
+            train_images_path = train_path_line[train_path_line.index(":") + 1:train_path_line.index("#")].strip()
+            val_images_path = val_path_line[val_path_line.index(":") + 1:val_path_line.index("#")].strip()
+
+            train_labels_path = train_images_path.replace("images", "labels")
+            val_labels_path = val_images_path.replace("images", "labels")
+
+            # Ask user to point to the output directory
+            training_directory = QFileDialog.getExistingDirectory(self, "Select Training Dataset Directory")
+
+            # Do a directory checkout - check if directory exists,
+            # clear its contents if it does or create it if it doesn't
+            directory_checkout(training_directory)
+            directory_checkout(f"{training_directory}/images")
+            directory_checkout(f"{training_directory}/labels")
+            directory_checkout(f"{training_directory}/{train_images_path}")
+            directory_checkout(f"{training_directory}/{train_labels_path}")
+            directory_checkout(f"{training_directory}/{val_images_path}")
+            directory_checkout(f"{training_directory}/{val_labels_path}")
+
+            # TODO Ask the user about train to val proportions and copy the dataset to the output directory
+
     def read_yaml(self):
+        # TODO docstring and comments
         with open(f"{self.database_path}/{self.yaml_path}", 'r') as yaml_file:
             yaml_contents = yaml_file.readlines()
             yaml_contents = yaml_contents[yaml_contents.index("names:\n") + 1:]
@@ -199,37 +264,44 @@ class LabellerUI(QDialog):
                 self.available_classes.update({object_number: object_class})
 
     def modify_classes(self):
+        # TODO docstring
         if self.yaml_path != '':
             self.yaml_editor = YAMLEditor(self.database_path, self.yaml_path, self.label_files)
 
     def next_image_and_labels(self):
+        # TODO docstring
         if not self.image_index >= len(self.image_files) - 1:
             self.save_labels()
             self.image_index += 1
             self.update_ui()
 
     def previous_image_and_labels(self):
+        # TODO docstring
         if not self.image_index <= 0:
             self.save_labels()
             self.image_index -= 1
             self.update_ui()
 
     def save_labels(self):
+        # TODO well, everything
         print('OVERWRITING LABELS')
 
     def update_ui(self):
+        # TODO docstring
         self.read_image()
         self.read_labels()
         self.update_labels_list()
         self.paint_labels()
 
     def new_label(self, x_center, y_center, width, height):
+        # TODO docstring and comments
         if self.lock_editing_checkbox.isChecked():
             self.active_labels.append(f"{self.class_spin_box.value()} {x_center} {y_center} {width} {height}")
             self.update_labels_list()
             self.paint_labels()
 
     def paint_labels(self):
+        # TODO docstring and comments
         if self.labels_on_checkbox.isChecked():
             for label in self.active_labels:
                 class_number = max_string(list(self.available_classes.keys()))
@@ -241,9 +313,11 @@ class LabellerUI(QDialog):
                 self.image_label.paint_rect_from_label(label, class_name, rgb_to_bgr(rgb_col))
 
     def read_image(self):
+        # TODO docstring
         self.image_label.change_image(cv2.imread(f"{self.database_path}/{self.image_files[self.image_index]}"))
 
     def read_labels(self):
+        # TODO docstring and comments
         image_name = self.image_files[self.image_index]
         labels_name = f"{image_name[:image_name.index('.')]}.txt"
 
@@ -257,6 +331,7 @@ class LabellerUI(QDialog):
         self.visible_class_count = dict()
 
     def update_visible_class_count(self, class_number: str, increment: bool = True) -> int:
+        # TODO docstring and comments
         if class_number in list(self.visible_class_count.keys()):
             if increment:
                 self.visible_class_count.update({class_number: self.visible_class_count[class_number] + 1})
@@ -268,6 +343,7 @@ class LabellerUI(QDialog):
         return self.visible_class_count[class_number]
 
     def update_labels_list(self):
+        # TODO docstring and comments
         for child in self.label_list_widget.children():
             if type(child) is not QVBoxLayout:
                 child.deleteLater()
@@ -286,6 +362,7 @@ class LabellerUI(QDialog):
                 LabelListButton(text, label, rgb_col, self.label_list_widget, self.label_clicked))
 
     def label_clicked(self, widget, label):
+        # TODO docstring and comments
         if self.lock_editing_checkbox.isChecked():
             widget.close()
             if label in self.active_labels:

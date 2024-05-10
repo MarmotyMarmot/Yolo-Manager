@@ -14,6 +14,7 @@ class InteractiveImage(QLabel):
     """QLabel containing the image, used to easily determine the mouse click position in relation to the image"""
 
     def __init__(self, rect_drawn_handler: Callable):
+        # TODO docstring and comments
         super().__init__()
         self.ori_image = None
         self.image = None
@@ -25,7 +26,7 @@ class InteractiveImage(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignTop)
 
     def preprocess_image(self, image: numpy.ndarray):
-
+        # TODO docstring and comments
         new_image_height, new_image_width = list(image.shape[:2])
 
         if new_image_height > self.size().height():
@@ -101,22 +102,28 @@ class InteractiveImage(QLabel):
             self.drawing_mode = False
 
     def clear_labels(self):
+        # TODO docstring
         self.image = self.ori_image.copy()
         self.update_image()
 
     def change_image(self, image):
+        # TODO docstring
         self.ori_image = self.preprocess_image(image)
         self.image = self.ori_image.copy()
         self.temp_image = self.ori_image.copy()
         self.update_image()
 
     def update_image(self):
+        # TODO docstring
         self.setPixmap(q_pixmap_from_cv_img(self.image))
 
     def paint_rect_from_label(self, label, classname, col):
+        # TODO docstring
         x_center, y_center, width, height = [float(element) for element in label.split(" ")[1:]]
-        lu_corner = (int(self.image_size[0] * (x_center - width / 2)), int(self.image_size[1] * (y_center - height / 2)))
-        rb_corner = (int(self.image_size[0] * (x_center + width / 2)), int(self.image_size[1] * (y_center + height / 2)))
+        lu_corner = \
+            (int(self.image_size[0] * (x_center - width / 2)), int(self.image_size[1] * (y_center - height / 2)))
+        rb_corner = \
+            (int(self.image_size[0] * (x_center + width / 2)), int(self.image_size[1] * (y_center + height / 2)))
 
         cv2.rectangle(self.image, lu_corner, rb_corner, col)
         cv2.putText(self.image, classname, lu_corner, 1, 1, col, 1)
