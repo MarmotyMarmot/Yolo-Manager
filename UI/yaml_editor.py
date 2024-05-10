@@ -17,6 +17,7 @@ class YAMLEditor(QWidget):
         self.class_numbers_dict = dict()
         self.class_names_dict = dict()
 
+        self.setWindowTitle("YAML Editor")
         self.layout_setup()
         self.read_yaml()
         self.show()

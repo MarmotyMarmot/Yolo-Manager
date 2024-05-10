@@ -1,3 +1,4 @@
+from colorsys import hsv_to_rgb
 from numpy import ndarray
 from PyQt6.QtGui import QPixmap, QImage
 
@@ -26,3 +27,17 @@ def max_string(list_of_strings: list[str]) -> int:
         return max(int(string) for string in list_of_strings)
     except ValueError:
         return 0
+
+
+def rgb_to_bgr(rgb: list):
+    return [rgb[2], rgb[1], rgb[0]]
+
+
+def rgb_from_scale(value: int, scale: int, s: float = 0.95, v: float = 1):
+    if scale == 0:
+        hue = 0
+    else:
+        hue = value / scale
+
+    rgb_normalized = hsv_to_rgb(hue, 0.95, 1)
+    return [int(col * 255) for col in rgb_normalized]

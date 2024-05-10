@@ -1,17 +1,16 @@
 import os
 import cv2
 
-from colorsys import hsv_to_rgb
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QScrollArea, QWidget, QFileDialog, \
     QCheckBox
 
 from UI.yaml_editor import YAMLEditor
-from UI.small_custom_widgets import LabelListButton
+from UI.small_custom_widgets import LabelListButton, StringSpinBox
 from UI.interactive_image import InteractiveImage
 
-from tools import max_string
+from tools import max_string, rgb_to_bgr, rgb_from_scale
 
 
 class LabellerUI(QDialog):
@@ -20,6 +19,7 @@ class LabellerUI(QDialog):
         self.available_classes = dict()
         self.selected_class = 0
         self.active_labels = []
+        self.visible_class_count = dict()
         self.tmp_dir = 'tmp'
         self.database_path = ''
         self.yaml_path = ''
@@ -27,7 +27,7 @@ class LabellerUI(QDialog):
         self.label_files = []
         self.image_index = 0
 
-        self.setWindowTitle("Labeller")
+        self.setWindowTitle("YOLO Manager")
         self.layout_setup()
         self.show()
 
@@ -46,12 +46,20 @@ class LabellerUI(QDialog):
         self.modify_classes_button = QPushButton("Modify classes")
         self.modify_classes_button.clicked.connect(self.modify_classes)
 
+        self.class_spin_box = StringSpinBox()
+
+        self.labels_on_checkbox = QCheckBox("Show labels")
         self.save_on_change_checkbox = QCheckBox("Save on change")
         self.lock_editing_checkbox = QCheckBox("Enable edition")
+        self.lock_editing_checkbox.setEnabled(False)
+        self.labels_on_checkbox.setEnabled(True)
+        self.labels_on_checkbox.checkStateChanged.connect(self.toggle_editing)
 
         vertical_layout_left.addWidget(self.read_dtbs_button)
         vertical_layout_left.addWidget(self.verify_dtbs_button)
         vertical_layout_left.addWidget(self.modify_classes_button)
+        vertical_layout_left.addWidget(self.class_spin_box)
+        vertical_layout_left.addWidget(self.labels_on_checkbox)
         vertical_layout_left.addWidget(self.save_on_change_checkbox)
         vertical_layout_left.addWidget(self.lock_editing_checkbox)
 
@@ -95,6 +103,9 @@ class LabellerUI(QDialog):
 
         self.setLayout(horizontal_layout)
 
+    def toggle_editing(self):
+        self.lock_editing_checkbox.setEnabled(self.labels_on_checkbox.isChecked())
+
     def read_database(self):
         print('READING DATABASE')
         if len(self.image_files) != 0:
@@ -125,6 +136,13 @@ class LabellerUI(QDialog):
         else:
             self.yaml_path = yaml_file[0]
             self.read_yaml()
+
+        class_names_in_order = []
+        for key in range(len(self.available_classes.keys())):
+            class_names_in_order.append(self.available_classes[f"{key}"])
+
+        self.class_spin_box.set_strings(class_names_in_order)
+        self.class_spin_box.setValue(0)
 
         self.update_ui()
 
@@ -201,22 +219,21 @@ class LabellerUI(QDialog):
         self.paint_labels()
 
     def new_label(self, x_center, y_center, width, height):
-        self.active_labels.append(f"{self.selected_class} {x_center} {y_center} {width} {height}")
-        self.update_labels_list()
-        self.paint_labels()
+        if self.lock_editing_checkbox.isChecked():
+            self.active_labels.append(f"{self.class_spin_box.value()} {x_center} {y_center} {width} {height}")
+            self.update_labels_list()
+            self.paint_labels()
 
     def paint_labels(self):
-        for label in self.active_labels:
-            label_class = int(label.split(" ")[0])
-            class_number = max_string(list(self.available_classes.keys()))
-            if class_number == 0:
-                hue = 0
-            else:
-                hue = label_class / class_number
-
-            rgb_normalized = hsv_to_rgb(hue, 0.95, 1)
-            rgb_col = [int(col * 255) for col in rgb_normalized]
-            self.image_label.paint_rect_from_label(label, rgb_col)
+        if self.labels_on_checkbox.isChecked():
+            for label in self.active_labels:
+                class_number = max_string(list(self.available_classes.keys()))
+                rgb_col = rgb_from_scale(int(label.split(" ")[0]), class_number)
+                if len(self.available_classes.keys()) != 0:
+                    class_name = self.available_classes[label.split(" ")[0]]
+                else:
+                    class_name = "0"
+                self.image_label.paint_rect_from_label(label, class_name, rgb_to_bgr(rgb_col))
 
     def read_image(self):
         self.image_label.change_image(cv2.imread(f"{self.database_path}/{self.image_files[self.image_index]}"))
@@ -232,18 +249,42 @@ class LabellerUI(QDialog):
         else:
             print('There is no txt file, make one')
 
+        self.visible_class_count = dict()
+
+    def update_visible_class_count(self, class_number: str, increment: bool = True) -> int:
+        if class_number in list(self.visible_class_count.keys()):
+            if increment:
+                self.visible_class_count.update({class_number: self.visible_class_count[class_number] + 1})
+            else:
+                self.visible_class_count.update({class_number: self.visible_class_count[class_number] - 1})
+        else:
+            self.visible_class_count.update({class_number: 1})
+
+        return self.visible_class_count[class_number]
+
     def update_labels_list(self):
         for child in self.label_list_widget.children():
             if type(child) is not QVBoxLayout:
                 child.deleteLater()
 
         for label in self.active_labels:
-            self.label_list_container.addWidget(LabelListButton(label, self.label_list_widget, self.label_clicked))
+            split_label = label.split(" ")
+            class_count = self.update_visible_class_count(split_label[0])
 
-    def label_clicked(self, widget, text):
+            classname = self.available_classes[split_label[0]] if split_label[0] in self.available_classes else '0'
+
+            text = f"{classname} {class_count}"
+
+            class_number = max_string(list(self.available_classes.keys()))
+            rgb_col = rgb_from_scale(int(split_label[0]), class_number)
+            self.label_list_container.addWidget(
+                LabelListButton(text, label, rgb_col, self.label_list_widget, self.label_clicked))
+
+    def label_clicked(self, widget, label):
         if self.lock_editing_checkbox.isChecked():
             widget.close()
-            if text in self.active_labels:
-                self.active_labels.remove(text)
+            if label in self.active_labels:
+                self.update_visible_class_count(label.split(" ")[0], increment=False)
+                self.active_labels.remove(label)
                 self.image_label.clear_labels()
                 self.paint_labels()

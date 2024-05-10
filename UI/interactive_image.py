@@ -113,10 +113,11 @@ class InteractiveImage(QLabel):
     def update_image(self):
         self.setPixmap(q_pixmap_from_cv_img(self.image))
 
-    def paint_rect_from_label(self, label, col):
+    def paint_rect_from_label(self, label, classname, col):
         x_center, y_center, width, height = [float(element) for element in label.split(" ")[1:]]
         lu_corner = (int(self.image_size[0] * (x_center - width / 2)), int(self.image_size[1] * (y_center - height / 2)))
         rb_corner = (int(self.image_size[0] * (x_center + width / 2)), int(self.image_size[1] * (y_center + height / 2)))
 
         cv2.rectangle(self.image, lu_corner, rb_corner, col)
+        cv2.putText(self.image, classname, lu_corner, 1, 1, col, 1)
         self.update_image()
