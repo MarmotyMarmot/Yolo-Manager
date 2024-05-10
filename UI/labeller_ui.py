@@ -31,6 +31,12 @@ class LabellerUI(QDialog):
         self.layout_setup()
         self.show()
 
+    def resizeEvent(self, event):
+        new_size = self.size()
+        self.image_label.setFixedSize(int(new_size.width() / 1.3), int(new_size.height() / 1.3))
+        if self.database_path != '':
+            self.update_ui()
+
     def layout_setup(self):
         screen_size = QGuiApplication.primaryScreen().size()
         horizontal_layout = QHBoxLayout()
@@ -51,8 +57,7 @@ class LabellerUI(QDialog):
         self.labels_on_checkbox = QCheckBox("Show labels")
         self.save_on_change_checkbox = QCheckBox("Save on change")
         self.lock_editing_checkbox = QCheckBox("Enable edition")
-        self.lock_editing_checkbox.setEnabled(False)
-        self.labels_on_checkbox.setEnabled(True)
+        self.labels_on_checkbox.setChecked(True)
         self.labels_on_checkbox.checkStateChanged.connect(self.toggle_editing)
 
         vertical_layout_left.addWidget(self.read_dtbs_button)
