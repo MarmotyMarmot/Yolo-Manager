@@ -32,15 +32,6 @@ class LabellerUI(QDialog):
         self.layout_setup()
         self.show()
 
-    def resizeEvent(self, event):
-        # TODO docstring and comments
-        new_size = self.size()
-        self.image_label.setFixedSize(int(new_size.width() / 1.5), int(new_size.height() / 1.1))
-
-        if self.database_path != '':
-            self.update_ui()
-
-    # noinspection PyUnresolvedReferences
     def layout_setup(self):
         # TODO docstring and comments
         screen_size = QGuiApplication.primaryScreen().size()
@@ -135,6 +126,14 @@ class LabellerUI(QDialog):
         horizontal_layout.addWidget(vertical_widget_right)
 
         self.setLayout(horizontal_layout)
+
+    def resizeEvent(self, event):
+        # TODO docstring and comments
+        new_size = self.size()
+        self.image_label.setFixedSize(int(new_size.width() / 1.5), int(new_size.height() / 1.1))
+
+        if self.database_path != '':
+            self.update_ui()
 
     def toggle_editing(self):
         # TODO docstring
@@ -325,6 +324,7 @@ class LabellerUI(QDialog):
             with open(f"{self.database_path}/{labels_name}", 'r') as labels_file:
                 labels = [label.replace("\n", "") for label in labels_file.readlines()]
                 self.active_labels = labels
+
         else:
             print('There is no txt file, make one')
 
