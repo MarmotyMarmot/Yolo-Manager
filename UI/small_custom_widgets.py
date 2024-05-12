@@ -2,10 +2,12 @@ from typing import Callable
 
 from PyQt6.QtWidgets import QPushButton, QSpinBox
 
+from label_tools import Label
+
 
 class LabelListButton(QPushButton):
     # TODO docstring and comments
-    def __init__(self, text: str, label: str, background_col, parent, onClickFunc: Callable):
+    def __init__(self, text: str, label: Label, background_col, parent, onClickFunc: Callable):
         super().__init__(text, parent)
         self.text = text
         self.label = label

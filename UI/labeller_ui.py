@@ -12,6 +12,8 @@ from UI.interactive_image import InteractiveImage
 
 from tools import max_string, rgb_to_bgr, rgb_from_scale, directory_checkout, find_string_part_in_list
 
+from label_tools import Label, label_from_yolo_v5
+
 
 class LabellerUI(QDialog):
     def __init__(self):
@@ -27,6 +29,7 @@ class LabellerUI(QDialog):
         self.image_files = []
         self.label_files = []
         self.image_index = 0
+        self.dataset_loaded_flag = False
 
         self.setWindowTitle("YOLO Manager")
         self.layout_setup()
@@ -148,6 +151,7 @@ class LabellerUI(QDialog):
         if self.database_path == '':
             return None
 
+        self.dataset_loaded_flag = True
         self.read_database_button.setStyleSheet("")
         all_files = os.listdir(self.database_path)
 
@@ -186,46 +190,48 @@ class LabellerUI(QDialog):
 
     def verify_database(self):
         # TODO docstring and comments
-        print('DATABASE VERIFICATION')
-        verify_flag = True
-        invalid_files = []
-        if len(self.label_files) == 0:
-            print('Nothing to verify')
-        else:
-            images_without_extension = [file[:file.index(".")] for file in self.image_files]
-            for file in self.label_files:
-                with open(f"{self.database_path}/{file}", "r") as label_reader:
-                    label_contents = label_reader.readlines()
+        if self.dataset_loaded_flag:
+            verify_flag = True
+            invalid_files = []
+            if len(self.label_files) == 0:
+                print('Nothing to verify')
+            else:
+                images_without_extension = [file[:file.index(".")] for file in self.image_files]
+                for file in self.label_files:
+                    with open(f"{self.database_path}/{file}", "r") as label_reader:
+                        label_contents = label_reader.readlines()
 
-                for line in label_contents:
-                    line_as_list = line.replace("\n", "").split(" ")
-                    if len(line_as_list) != 5:
+                    for line in label_contents:
+                        # verification of labels FOR YOLOv5, NOT UNIVERSAL,
+                        # CHANGE IF DATABASE VERIFIER WILL BE IMPLEMENTED
+                        line_as_list = line.replace("\n", "").split(" ")
+                        if len(line_as_list) != 5:
+                            verify_flag = False
+                            invalid_files.append(file)
+
+                        for number in line_as_list:
+                            try:
+                                float(number)
+                            except ValueError:
+                                try:
+                                    int(number)
+                                except ValueError:
+                                    verify_flag = False
+                                    invalid_files.append(file)
+
+                    without_extension = file[:file.index(".")]
+                    if without_extension not in images_without_extension:
                         verify_flag = False
                         invalid_files.append(file)
 
-                    for number in line_as_list:
-                        try:
-                            float(number)
-                        except ValueError:
-                            try:
-                                int(number)
-                            except ValueError:
-                                verify_flag = False
-                                invalid_files.append(file)
-
-                without_extension = file[:file.index(".")]
-                if without_extension not in images_without_extension:
-                    verify_flag = False
-                    invalid_files.append(file)
-
-        if verify_flag:
-            print('Let the user know that the database is valid')
-        else:
-            print(f'Let the user know that the database is invalid and the {invalid_files} are causing the problems')
+            if verify_flag:
+                print('Let the user know that the database is valid')
+            else:
+                print(f'Let the user know that the database is invalid and the {invalid_files} are causing the problems')
 
     def prepare_for_training(self):
         # TODO docstring and comments
-        if self.database_path != '':
+        if self.dataset_loaded_flag:
             # Get the relative paths saved in the yaml file
             with open(f"{self.database_path}/{self.yaml_path}", "r") as yaml_reader:
                 yaml_contents = yaml_reader.readlines()
@@ -283,33 +289,35 @@ class LabellerUI(QDialog):
 
     def save_labels(self):
         # TODO well, everything
-        print('OVERWRITING LABELS')
+        if self.dataset_loaded_flag:
+            print('OVERWRITING LABELS')
 
     def update_ui(self):
         # TODO docstring
-        self.read_image()
-        self.read_labels()
-        self.update_labels_list()
-        self.paint_labels()
-
-    def new_label(self, x_center, y_center, width, height):
-        # TODO docstring and comments
-        if self.lock_editing_checkbox.isChecked():
-            self.active_labels.append(f"{self.class_spin_box.value()} {x_center} {y_center} {width} {height}")
+        if self.dataset_loaded_flag:
+            self.read_image()
+            self.read_labels()
             self.update_labels_list()
             self.paint_labels()
+
+    def new_label(self, label: Label):
+        # TODO docstring and comments
+        if self.dataset_loaded_flag:
+            if self.lock_editing_checkbox.isChecked():
+                label.class_number = str(self.class_spin_box.value())
+                label.class_name = self.available_classes[str(self.class_spin_box.value())]
+                self.active_labels.append(label)
+                self.update_labels_list()
+                self.paint_labels()
 
     def paint_labels(self):
         # TODO docstring and comments
         if self.labels_on_checkbox.isChecked():
             for label in self.active_labels:
-                class_number = max_string(list(self.available_classes.keys()))
-                rgb_col = rgb_from_scale(int(label.split(" ")[0]), class_number)
-                if len(self.available_classes.keys()) != 0:
-                    class_name = self.available_classes[label.split(" ")[0]]
-                else:
-                    class_name = "0"
-                self.image_label.paint_rect_from_label(label, class_name, rgb_to_bgr(rgb_col))
+                max_class_number = max_string(list(self.available_classes.keys()))
+                rgb_col = rgb_from_scale(int(label.class_number), max_class_number)
+
+                self.image_label.paint_rect_from_label(label, rgb_to_bgr(rgb_col))
 
     def read_image(self):
         # TODO docstring
@@ -322,7 +330,8 @@ class LabellerUI(QDialog):
 
         if labels_name in self.label_files:
             with open(f"{self.database_path}/{labels_name}", 'r') as labels_file:
-                labels = [label.replace("\n", "") for label in labels_file.readlines()]
+                labels = [label_from_yolo_v5(label, self.available_classes[label.split(" ")[0]]) for label in
+                          labels_file.readlines()]
                 self.active_labels = labels
 
         else:
@@ -349,15 +358,12 @@ class LabellerUI(QDialog):
                 child.deleteLater()
 
         for label in self.active_labels:
-            split_label = label.split(" ")
-            class_count = self.update_visible_class_count(split_label[0])
+            class_count = self.update_visible_class_count(label.class_number)
 
-            classname = self.available_classes[split_label[0]] if split_label[0] in self.available_classes else '0'
-
-            text = f"{classname} {class_count}"
+            text = f"{label.class_name} {class_count}"
 
             class_number = max_string(list(self.available_classes.keys()))
-            rgb_col = rgb_from_scale(int(split_label[0]), class_number)
+            rgb_col = rgb_from_scale(int(label.class_number), class_number)
             self.label_list_container.addWidget(
                 LabelListButton(text, label, rgb_col, self.label_list_widget, self.label_clicked))
 
@@ -366,7 +372,7 @@ class LabellerUI(QDialog):
         if self.lock_editing_checkbox.isChecked():
             widget.close()
             if label in self.active_labels:
-                self.update_visible_class_count(label.split(" ")[0], increment=False)
+                self.update_visible_class_count(label.class_number, increment=False)
                 self.active_labels.remove(label)
                 self.image_label.clear_labels()
                 self.paint_labels()

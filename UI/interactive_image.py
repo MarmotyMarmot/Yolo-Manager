@@ -9,6 +9,8 @@ from PyQt6.QtGui import QMouseEvent
 
 from tools import q_pixmap_from_cv_img
 
+from label_tools import label_from_coords, coords_from_label
+
 
 class InteractiveImage(QLabel):
     """QLabel containing the image, used to easily determine the mouse click position in relation to the image"""
@@ -78,23 +80,7 @@ class InteractiveImage(QLabel):
             if end_point[1] > self.image_size[1]:
                 end_point[1] = self.image_size[1]
 
-            pix_width = abs(end_point[0] - self.start_point[0])
-            pix_height = abs(end_point[1] - self.start_point[1])
-
-            if end_point[0] >= self.start_point[0]:
-                x_center = round((self.start_point[0] + pix_width / 2) / self.image_size[0], 6)
-            else:
-                x_center = round((end_point[0] + pix_width / 2) / self.image_size[0], 6)
-
-            if end_point[1] >= self.start_point[1]:
-                y_center = round((self.start_point[1] + pix_height / 2) / self.image_size[1], 6)
-            else:
-                y_center = round((end_point[1] + pix_height / 2) / self.image_size[1], 6)
-
-            width = round(pix_width / self.image_size[0], 6)
-            height = round(pix_height / self.image_size[1], 6)
-
-            self.rect_drawn_handler(x_center, y_center, width, height)
+            self.rect_drawn_handler(label_from_coords(self.start_point, end_point, self.image_size))
             # Clearing the temporary rectangle
             self.temp_image = self.image.copy()
             self.setPixmap(q_pixmap_from_cv_img(self.temp_image))
@@ -117,14 +103,10 @@ class InteractiveImage(QLabel):
         # TODO docstring
         self.setPixmap(q_pixmap_from_cv_img(self.image))
 
-    def paint_rect_from_label(self, label, classname, col):
+    def paint_rect_from_label(self, label, col):
         # TODO docstring
-        x_center, y_center, width, height = [float(element) for element in label.split(" ")[1:]]
-        lu_corner = \
-            (int(self.image_size[0] * (x_center - width / 2)), int(self.image_size[1] * (y_center - height / 2)))
-        rb_corner = \
-            (int(self.image_size[0] * (x_center + width / 2)), int(self.image_size[1] * (y_center + height / 2)))
+        lu_corner, rb_corner = coords_from_label(label, self.image_size)
 
         cv2.rectangle(self.image, lu_corner, rb_corner, col)
-        cv2.putText(self.image, classname, lu_corner, 1, 1, col, 1)
+        cv2.putText(self.image, label.class_name, lu_corner, 1, 1, col, 1)
         self.update_image()
