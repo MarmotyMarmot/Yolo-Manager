@@ -32,7 +32,7 @@ def yolo_v5_from_label(label: Label) -> str:
     """Creates a yolo_v5 label from a label.
     :arg label: instance of a Label class.
     :returns: yolo_v5 label."""
-    return f"{label.class_number} {label.x_center} {label.y_center} {label.width} {label.height}"
+    return f"{label.class_number} {label.x_center} {label.y_center} {label.width} {label.height}\n"
 
 
 def label_from_coords(lu_corner: list[int, int], rb_corner: list[int, int],
@@ -71,3 +71,4 @@ def coords_from_label(label: Label, image_size: list[int, int]) -> tuple[tuple[i
     rb_corner = (int(image_size[0] * (label.x_center + label.width / 2)),
                  int(image_size[1] * (label.y_center + label.height / 2)))
     return lu_corner, rb_corner
+

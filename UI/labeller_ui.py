@@ -1,18 +1,21 @@
 import os
+import random
+import shutil
+
 import cv2
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QScrollArea, QWidget, QFileDialog, \
-    QCheckBox, QSizePolicy
+    QCheckBox, QSizePolicy, QSpinBox
 
 from UI.yaml_editor import YAMLEditor
-from UI.small_custom_widgets import LabelListButton, StringSpinBox
+from UI.small_custom_widgets import LabelListButton, StringSpinBox, ProportionSpinBox
 from UI.interactive_image import InteractiveImage
 
 from tools import max_string, rgb_to_bgr, rgb_from_scale, directory_checkout, find_string_part_in_list
 
-from label_tools import Label, label_from_yolo_v5
+from label_tools import Label, label_from_yolo_v5, yolo_v5_from_label
 
 
 class LabellerUI(QDialog):
@@ -29,6 +32,7 @@ class LabellerUI(QDialog):
         self.image_files = []
         self.label_files = []
         self.image_index = 0
+        self.labels_exists = False
         self.dataset_loaded_flag = False
 
         self.setWindowTitle("YOLO Manager")
@@ -50,7 +54,7 @@ class LabellerUI(QDialog):
 
         self.read_database_button = QPushButton("Read database")
         self.read_database_button.setStyleSheet("background-color: rgb(0, 255, 0);")
-        self.read_database_button.clicked.connect(self.read_database)
+        self.read_database_button.clicked.connect(self.select_database)
 
         self.verify_database_button = QPushButton("Verify database")
         self.verify_database_button.clicked.connect(self.verify_database)
@@ -58,6 +62,7 @@ class LabellerUI(QDialog):
         self.modify_classes_button = QPushButton("Modify classes")
         self.modify_classes_button.clicked.connect(self.modify_classes)
 
+        self.dataset_proportions = ProportionSpinBox()
         self.prepare_for_training_button = QPushButton("Prepare for training")
         self.prepare_for_training_button.clicked.connect(self.prepare_for_training)
 
@@ -73,7 +78,9 @@ class LabellerUI(QDialog):
         vertical_layout_left.addWidget(self.read_database_button)
         vertical_layout_left.addWidget(self.verify_database_button)
         vertical_layout_left.addWidget(self.modify_classes_button)
+        vertical_layout_left.addLayout(self.dataset_proportions)
         vertical_layout_left.addWidget(self.prepare_for_training_button)
+        vertical_layout_left.addWidget(QLabel("Class"))
         vertical_layout_left.addWidget(self.class_spin_box)
         vertical_layout_left.addWidget(self.labels_on_checkbox)
         vertical_layout_left.addWidget(self.save_on_change_checkbox)
@@ -142,14 +149,20 @@ class LabellerUI(QDialog):
         # TODO docstring
         self.lock_editing_checkbox.setEnabled(self.labels_on_checkbox.isChecked())
 
+    def select_database(self):
+        self.database_path = QFileDialog.getExistingDirectory(self, "Select Database Directory")
+        if not self.database_path == '':
+            self.read_database()
+
     def read_database(self):
         # TODO docstring and comments
+        self.setEnabled(True)
+        self.yaml_editor = None
+
         if len(self.image_files) != 0:
             print('WARN USER ABOUT CHANGING AND SAVING THE OLD DATABASE')
 
-        self.database_path = QFileDialog.getExistingDirectory(self, "Select Database Directory")
-        if self.database_path == '':
-            return None
+        self.available_classes = dict()
 
         self.dataset_loaded_flag = True
         self.read_database_button.setStyleSheet("")
@@ -227,10 +240,11 @@ class LabellerUI(QDialog):
             if verify_flag:
                 print('Let the user know that the database is valid')
             else:
-                print(f'Let the user know that the database is invalid and the {invalid_files} are causing the problems')
+                print(
+                    f'Let the user know that the database is invalid and the {invalid_files} are causing the problems')
 
     def prepare_for_training(self):
-        # TODO docstring and comments
+        """Dividing the dataset according to the desired proportions and copying it into the selected directory"""
         if self.dataset_loaded_flag:
             # Get the relative paths saved in the yaml file
             with open(f"{self.database_path}/{self.yaml_path}", "r") as yaml_reader:
@@ -246,20 +260,51 @@ class LabellerUI(QDialog):
             # Ask user to point to the output directory
             training_directory = QFileDialog.getExistingDirectory(self, "Select Training Dataset Directory")
 
-            # Do a directory checkout - check if directory exists,
-            # clear its contents if it does or create it if it doesn't
-            directory_checkout(training_directory)
-            directory_checkout(f"{training_directory}/images")
-            directory_checkout(f"{training_directory}/labels")
-            directory_checkout(f"{training_directory}/{train_images_path}")
-            directory_checkout(f"{training_directory}/{train_labels_path}")
-            directory_checkout(f"{training_directory}/{val_images_path}")
-            directory_checkout(f"{training_directory}/{val_labels_path}")
+            train_images_full_path = os.path.join(training_directory, str(train_images_path))
+            train_labels_full_path = os.path.join(training_directory, str(train_labels_path))
+            val_images_full_path = os.path.join(training_directory, str(val_images_path))
+            val_labels_full_path = os.path.join(training_directory, str(val_labels_path))
 
-            # TODO Ask the user about train to val proportions and copy the dataset to the output directory
+            directory_checkout(training_directory)
+            directory_checkout(os.path.join(training_directory, "images"))
+            directory_checkout(os.path.join(training_directory, "labels"))
+            directory_checkout(train_images_full_path)
+            directory_checkout(train_labels_full_path)
+            directory_checkout(val_images_full_path)
+            directory_checkout(val_labels_full_path)
+
+            train_prop, val_prop = self.dataset_proportions.get_proportions()
+
+            number_of_train_images = int(train_prop * len(self.image_files))
+
+            image_files = self.image_files.copy()
+            random.shuffle(image_files)
+
+            train_images = image_files[:number_of_train_images]
+            val_images = image_files[number_of_train_images:]
+
+            for train_image in train_images:
+                shutil.copy(os.path.join(self.database_path, str(train_image)),
+                            os.path.join(train_images_full_path, str(train_image)))
+
+                labels_name = f"{train_image[:train_image.index('.')]}.txt"
+                labels_path = os.path.join(self.database_path, labels_name)
+
+                if os.path.exists(labels_path):
+                    shutil.copy(labels_path, os.path.join(train_labels_full_path, labels_name))
+
+            for val_image in val_images:
+                shutil.copy(os.path.join(self.database_path, str(val_image)),
+                            os.path.join(val_images_full_path, str(val_image)))
+
+                labels_name = f"{val_image[:val_image.index('.')]}.txt"
+                labels_path = os.path.join(self.database_path, labels_name)
+
+                if os.path.exists(labels_path):
+                    shutil.copy(labels_path, os.path.join(val_labels_full_path, labels_name))
 
     def read_yaml(self):
-        # TODO docstring and comments
+        """Reading available classes from yaml file"""
         with open(f"{self.database_path}/{self.yaml_path}", 'r') as yaml_file:
             yaml_contents = yaml_file.readlines()
             yaml_contents = yaml_contents[yaml_contents.index("names:\n") + 1:]
@@ -269,31 +314,48 @@ class LabellerUI(QDialog):
                 self.available_classes.update({object_number: object_class})
 
     def modify_classes(self):
-        # TODO docstring
+        """Opening yaml editor and suspending the main window"""
         if self.yaml_path != '':
-            self.yaml_editor = YAMLEditor(self.database_path, self.yaml_path, self.label_files)
+            self.yaml_editor = YAMLEditor(self.database_path, self.yaml_path, self.label_files, self.read_database)
+            self.setEnabled(False)
+
+    def closeEvent(self, a0):
+        """Closing the window and the yaml editor if opened"""
+        if isinstance(self.yaml_editor, YAMLEditor):
+            self.yaml_editor.close()
+        self.close()
 
     def next_image_and_labels(self):
-        # TODO docstring
+        """Switching to the next image and label, saving if requested"""
         if not self.image_index >= len(self.image_files) - 1:
-            self.save_labels()
+            if self.save_on_change_checkbox.isChecked():
+                self.save_labels()
             self.image_index += 1
             self.update_ui()
 
     def previous_image_and_labels(self):
-        # TODO docstring
+        """Switching to the previous image and label, saving if requested"""
         if not self.image_index <= 0:
-            self.save_labels()
+            if self.save_on_change_checkbox.isChecked():
+                self.save_labels()
             self.image_index -= 1
             self.update_ui()
 
     def save_labels(self):
-        # TODO well, everything
+        """Saving active labels to labels file, if active labels is empty, deletes labels file"""
         if self.dataset_loaded_flag:
             print('OVERWRITING LABELS')
+            image_name = self.image_files[self.image_index]
+            labels_path = os.path.join(self.database_path, f"{image_name[:image_name.index('.')]}.txt")
+            if self.labels_exists:
+                if len(self.active_labels) == 0:
+                    os.remove(labels_path)
+                else:
+                    with open(labels_path, 'w') as labels_writer:
+                        labels_writer.writelines([yolo_v5_from_label(label) for label in self.active_labels])
 
     def update_ui(self):
-        # TODO docstring
+        """Reading the image with labels and loading them into UI"""
         if self.dataset_loaded_flag:
             self.read_image()
             self.read_labels()
@@ -301,7 +363,7 @@ class LabellerUI(QDialog):
             self.paint_labels()
 
     def new_label(self, label: Label):
-        # TODO docstring and comments
+        """Adding a label to the displayed picture"""
         if self.dataset_loaded_flag:
             if self.lock_editing_checkbox.isChecked():
                 label.class_number = str(self.class_spin_box.value())
@@ -311,7 +373,7 @@ class LabellerUI(QDialog):
                 self.paint_labels()
 
     def paint_labels(self):
-        # TODO docstring and comments
+        """Painting the active labels on the displayed image"""
         if self.labels_on_checkbox.isChecked():
             for label in self.active_labels:
                 max_class_number = max_string(list(self.available_classes.keys()))
@@ -320,27 +382,31 @@ class LabellerUI(QDialog):
                 self.image_label.paint_rect_from_label(label, rgb_to_bgr(rgb_col))
 
     def read_image(self):
-        # TODO docstring
-        self.image_label.change_image(cv2.imread(f"{self.database_path}/{self.image_files[self.image_index]}"))
+        """Reading image from path"""
+        self.image_label.change_image(cv2.imread(os.path.join(self.database_path, self.image_files[self.image_index])))
 
     def read_labels(self):
-        # TODO docstring and comments
+        """Reading the labels, based on displayed image"""
         image_name = self.image_files[self.image_index]
         labels_name = f"{image_name[:image_name.index('.')]}.txt"
 
         if labels_name in self.label_files:
-            with open(f"{self.database_path}/{labels_name}", 'r') as labels_file:
+            with open(os.path.join(self.database_path, labels_name), 'r') as labels_file:
                 labels = [label_from_yolo_v5(label, self.available_classes[label.split(" ")[0]]) for label in
                           labels_file.readlines()]
                 self.active_labels = labels
-
+                self.labels_exists = True
         else:
-            print('There is no txt file, make one')
+            self.labels_exists = False
 
         self.visible_class_count = dict()
 
     def update_visible_class_count(self, class_number: str, increment: bool = True) -> int:
-        # TODO docstring and comments
+        """Incrementing or decrementing the number of visible objects assigned to each class
+        :arg class_number class number
+        :arg increment should increment or decrement
+        :return: number of objects of this class"""
+
         if class_number in list(self.visible_class_count.keys()):
             if increment:
                 self.visible_class_count.update({class_number: self.visible_class_count[class_number] + 1})
@@ -352,7 +418,7 @@ class LabellerUI(QDialog):
         return self.visible_class_count[class_number]
 
     def update_labels_list(self):
-        # TODO docstring and comments
+        """Updating the labels list displayed on the right side of the UI"""
         for child in self.label_list_widget.children():
             if type(child) is not QVBoxLayout:
                 child.deleteLater()
@@ -368,7 +434,7 @@ class LabellerUI(QDialog):
                 LabelListButton(text, label, rgb_col, self.label_list_widget, self.label_clicked))
 
     def label_clicked(self, widget, label):
-        # TODO docstring and comments
+        """Deleting the clicked label"""
         if self.lock_editing_checkbox.isChecked():
             widget.close()
             if label in self.active_labels:

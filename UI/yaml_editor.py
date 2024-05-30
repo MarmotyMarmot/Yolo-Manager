@@ -7,11 +7,12 @@ from tools import notfound
 
 class YAMLEditor(QWidget):
     # TODO docstring and comments
-    def __init__(self, database_path, yaml_path, labels_path):
+    def __init__(self, database_path, yaml_path, labels_path, close_func):
         super().__init__()
         self.database_path = database_path
         self.yaml_path = yaml_path
         self.labels_path = labels_path
+        self.close_func = close_func
 
         self.yaml_header = None
         self.yolo_classes = None
@@ -22,6 +23,10 @@ class YAMLEditor(QWidget):
         self.layout_setup()
         self.read_yaml()
         self.show()
+
+    def closeEvent(self, a0):
+        self.close_func()
+        self.close()
 
     def read_yaml(self):
         self.yolo_classes = dict()

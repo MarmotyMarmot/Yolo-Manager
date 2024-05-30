@@ -1,6 +1,6 @@
 from typing import Callable
 
-from PyQt6.QtWidgets import QPushButton, QSpinBox
+from PyQt6.QtWidgets import QPushButton, QSpinBox, QHBoxLayout
 
 from label_tools import Label
 
@@ -33,3 +33,46 @@ class StringSpinBox(QSpinBox):
 
     def textFromValue(self, value):
         return self._strings[value]
+
+
+class ProportionSpinBox(QHBoxLayout):
+    def __init__(self, max_val: int = 100):
+        super().__init__()
+        self.max_val = max_val
+        self.changing = False
+        self.proportions = (0.8, 0.2)
+
+        self.left_spin = QSpinBox()
+        self.right_spin = QSpinBox()
+
+        self.left_spin.lineEdit().setReadOnly(True)
+        self.right_spin.lineEdit().setReadOnly(True)
+
+        self.left_spin.setRange(0, self.max_val)
+        self.right_spin.setRange(0, self.max_val)
+
+        self.left_spin.setValue(int(self.max_val * 0.8))
+        self.right_spin.setValue(int(self.max_val * 0.2))
+
+        self.left_spin.valueChanged.connect(self.left_value_changed)
+        self.right_spin.valueChanged.connect(self.right_value_changed)
+
+        self.addWidget(self.left_spin)
+        self.addWidget(self.right_spin)
+
+    def left_value_changed(self, value):
+        if not self.changing:
+            self.changing = True
+            self.right_spin.setValue(self.max_val - value)
+            self.changing = False
+            self.proportions = (int(self.left_spin.value() / self.max_val), int(self.right_spin.value() / self.max_val))
+
+    def right_value_changed(self, value):
+        if not self.changing:
+            self.changing = True
+            self.right_spin.setValue(self.max_val - value)
+            self.changing = False
+            self.proportions = (int(self.left_spin.value() / self.max_val), int(self.right_spin.value() / self.max_val))
+
+    def get_proportions(self):
+        return self.proportions
