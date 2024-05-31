@@ -32,6 +32,7 @@ class LabellerUI(QDialog):
         self.image_files = []
         self.label_files = []
         self.image_index = 0
+        self.clipboard = None
         self.labels_exists = False
         self.dataset_loaded_flag = False
 
@@ -105,16 +106,21 @@ class LabellerUI(QDialog):
         self.save_button = QPushButton("Save")
         self.next_button = QPushButton("Next")
         self.prev_button = QPushButton("Previous")
+        self.copy_button = QPushButton("Copy")
+        self.paste_button = QPushButton("Paste")
 
         self.save_button.clicked.connect(self.save_labels)
         self.next_button.clicked.connect(self.next_image_and_labels)
         self.prev_button.clicked.connect(self.previous_image_and_labels)
+        self.copy_button.clicked.connect(self.copy_labels)
+        self.paste_button.clicked.connect(self.paste_labels)
 
         vertical_layout_right.addWidget(self.save_button)
         vertical_layout_right.addWidget(self.next_button)
         vertical_layout_right.addWidget(self.prev_button)
 
         vertical_layout_right.addWidget(QLabel('Active Labels'))
+
 
         self.label_list_widget = QWidget()
         self.label_list_container = QVBoxLayout()
@@ -126,6 +132,9 @@ class LabellerUI(QDialog):
         label_list_scroll.setWidget(self.label_list_widget)
 
         vertical_layout_right.addWidget(label_list_scroll)
+
+        vertical_layout_right.addWidget(self.copy_button)
+        vertical_layout_right.addWidget(self.paste_button)
 
         vertical_widget_left.setLayout(vertical_layout_left)
         vertical_widget_middle.setLayout(vertical_layout_middle)
@@ -158,6 +167,7 @@ class LabellerUI(QDialog):
         # TODO docstring and comments
         self.setEnabled(True)
         self.yaml_editor = None
+        self.clipboard = None
 
         if len(self.image_files) != 0:
             print('WARN USER ABOUT CHANGING AND SAVING THE OLD DATABASE')
@@ -359,6 +369,16 @@ class LabellerUI(QDialog):
         if self.dataset_loaded_flag:
             self.read_image()
             self.read_labels()
+            self.update_labels_list()
+            self.paint_labels()
+
+    def copy_labels(self):
+        if self.dataset_loaded_flag:
+            self.clipboard = self.active_labels
+
+    def paste_labels(self):
+        if self.dataset_loaded_flag and (self.clipboard is not None):
+            self.active_labels += self.clipboard
             self.update_labels_list()
             self.paint_labels()
 
