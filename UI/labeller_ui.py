@@ -7,7 +7,7 @@ import cv2
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QScrollArea, QWidget, QFileDialog, \
-    QCheckBox, QSizePolicy, QSpinBox
+    QCheckBox, QSizePolicy, QMessageBox
 
 from UI.yaml_editor import YAMLEditor
 from UI.small_custom_widgets import LabelListButton, StringSpinBox, ProportionSpinBox
@@ -35,6 +35,7 @@ class LabellerUI(QDialog):
         self.clipboard = None
         self.labels_exists = False
         self.dataset_loaded_flag = False
+        self.yaml_editor = None
 
         self.setWindowTitle("YOLO Manager")
         self.layout_setup()
@@ -63,6 +64,7 @@ class LabellerUI(QDialog):
         self.modify_classes_button = QPushButton("Modify classes")
         self.modify_classes_button.clicked.connect(self.modify_classes)
 
+        self.training_proportions_label = QLabel("Training Proportions")
         self.dataset_proportions = ProportionSpinBox()
         self.prepare_for_training_button = QPushButton("Prepare for training")
         self.prepare_for_training_button.clicked.connect(self.prepare_for_training)
@@ -79,10 +81,14 @@ class LabellerUI(QDialog):
         vertical_layout_left.addWidget(self.read_database_button)
         vertical_layout_left.addWidget(self.verify_database_button)
         vertical_layout_left.addWidget(self.modify_classes_button)
+        vertical_layout_left.addWidget(QLabel(""))
+        vertical_layout_left.addWidget(self.training_proportions_label)
         vertical_layout_left.addLayout(self.dataset_proportions)
         vertical_layout_left.addWidget(self.prepare_for_training_button)
+        vertical_layout_left.addWidget(QLabel(""))
         vertical_layout_left.addWidget(QLabel("Class"))
         vertical_layout_left.addWidget(self.class_spin_box)
+        vertical_layout_left.addWidget(QLabel(""))
         vertical_layout_left.addWidget(self.labels_on_checkbox)
         vertical_layout_left.addWidget(self.save_on_change_checkbox)
         vertical_layout_left.addWidget(self.lock_editing_checkbox)
@@ -106,8 +112,8 @@ class LabellerUI(QDialog):
         self.save_button = QPushButton("Save")
         self.next_button = QPushButton("Next")
         self.prev_button = QPushButton("Previous")
-        self.copy_button = QPushButton("Copy")
-        self.paste_button = QPushButton("Paste")
+        self.copy_button = QPushButton("Copy Labels")
+        self.paste_button = QPushButton("Paste Labels")
 
         self.save_button.clicked.connect(self.save_labels)
         self.next_button.clicked.connect(self.next_image_and_labels)
@@ -118,9 +124,8 @@ class LabellerUI(QDialog):
         vertical_layout_right.addWidget(self.save_button)
         vertical_layout_right.addWidget(self.next_button)
         vertical_layout_right.addWidget(self.prev_button)
-
+        vertical_layout_right.addWidget(QLabel(""))
         vertical_layout_right.addWidget(QLabel('Active Labels'))
-
 
         self.label_list_widget = QWidget()
         self.label_list_container = QVBoxLayout()
@@ -132,6 +137,7 @@ class LabellerUI(QDialog):
         label_list_scroll.setWidget(self.label_list_widget)
 
         vertical_layout_right.addWidget(label_list_scroll)
+        vertical_layout_right.addWidget(QLabel(""))
 
         vertical_layout_right.addWidget(self.copy_button)
         vertical_layout_right.addWidget(self.paste_button)
@@ -275,13 +281,16 @@ class LabellerUI(QDialog):
             val_images_full_path = os.path.join(training_directory, str(val_images_path))
             val_labels_full_path = os.path.join(training_directory, str(val_labels_path))
 
-            directory_checkout(training_directory)
-            directory_checkout(os.path.join(training_directory, "images"))
-            directory_checkout(os.path.join(training_directory, "labels"))
-            directory_checkout(train_images_full_path)
-            directory_checkout(train_labels_full_path)
-            directory_checkout(val_images_full_path)
-            directory_checkout(val_labels_full_path)
+            try:
+                directory_checkout(training_directory)
+                directory_checkout(os.path.join(training_directory, "images"))
+                directory_checkout(os.path.join(training_directory, "labels"))
+                directory_checkout(train_images_full_path)
+                directory_checkout(train_labels_full_path)
+                directory_checkout(val_images_full_path)
+                directory_checkout(val_labels_full_path)
+            except PermissionError:
+                print("FIX THE PERMISSION ERROR!")
 
             train_prop, val_prop = self.dataset_proportions.get_proportions()
 
@@ -329,11 +338,17 @@ class LabellerUI(QDialog):
             self.yaml_editor = YAMLEditor(self.database_path, self.yaml_path, self.label_files, self.read_database)
             self.setEnabled(False)
 
-    def closeEvent(self, a0):
+    def closeEvent(self, event):
         """Closing the window and the yaml editor if opened"""
-        if isinstance(self.yaml_editor, YAMLEditor):
-            self.yaml_editor.close()
-        self.close()
+        answer = QMessageBox.question(self, 'Confirmation',
+                                      'All unsaved changes will be lost, do still you want to quit?',
+                                      QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+        if answer == QMessageBox.StandardButton.Cancel:
+            event.ignore()
+        elif answer == QMessageBox.StandardButton.Ok:
+            if isinstance(self.yaml_editor, YAMLEditor):
+                self.yaml_editor.close()
+            event.accept()
 
     def next_image_and_labels(self):
         """Switching to the next image and label, saving if requested"""
