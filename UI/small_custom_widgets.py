@@ -1,6 +1,6 @@
 from typing import Callable
 
-from PyQt6.QtWidgets import QPushButton, QSpinBox, QHBoxLayout
+from PyQt6.QtWidgets import QPushButton, QSpinBox, QHBoxLayout, QLabel
 
 from label_tools import Label
 
@@ -76,3 +76,32 @@ class ProportionSpinBox(QHBoxLayout):
 
     def get_proportions(self):
         return self.proportions
+
+
+class SwitchButton(QHBoxLayout):
+    def __init__(self, name: str, toggle_func, button_states: list[str], bool_mode: bool = True):
+        super().__init__()
+        self.bool_mode = bool_mode
+        self.toggle_func = toggle_func
+        self.button_states = button_states
+
+        self.button_state_ind = 0
+
+        self.toggle_button = QPushButton(self.button_states[0])
+        self.toggle_button.clicked.connect(self.toggled)
+
+        self.addWidget(QLabel(name))
+        self.addWidget(self.toggle_button)
+
+    def toggled(self):
+        if self.bool_mode:
+            self.toggle_func(self.button_state_ind != 0)
+        else:
+            self.toggle_func(self.button_states[self.button_state_ind])
+
+        if self.button_state_ind < len(self.button_states) - 1:
+            self.button_state_ind += 1
+        else:
+            self.button_state_ind = 0
+
+        self.toggle_button.setText(self.button_states[self.button_state_ind])

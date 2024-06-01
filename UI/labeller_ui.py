@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QPushButton, QLab
     QCheckBox, QSizePolicy, QMessageBox
 
 from UI.yaml_editor import YAMLEditor
-from UI.small_custom_widgets import LabelListButton, StringSpinBox, ProportionSpinBox
+from UI.small_custom_widgets import LabelListButton, StringSpinBox, ProportionSpinBox, SwitchButton
 from UI.interactive_image import InteractiveImage
 
 from tools import max_string, rgb_to_bgr, rgb_from_scale, directory_checkout, find_string_part_in_list
@@ -35,6 +35,7 @@ class LabellerUI(QDialog):
         self.clipboard = None
         self.labels_exists = False
         self.dataset_loaded_flag = False
+        self.fine_tune_mode = False
         self.yaml_editor = None
 
         self.setWindowTitle("YOLO Manager")
@@ -78,20 +79,38 @@ class LabellerUI(QDialog):
         self.labels_on_checkbox.setChecked(True)
         self.labels_on_checkbox.checkStateChanged.connect(self.toggle_editing)
 
+        self.choose_model_button = QPushButton("Choose model")
+        self.fine_tune_button = QPushButton("Fine tune")
+        self.fine_tune_all_button = QPushButton("Fine tune all")
+        self.fine_tune_switch = SwitchButton("Mode", self.toggle_fine_tune, ["Average", "Overwrite"])
+
         vertical_layout_left.addWidget(self.read_database_button)
         vertical_layout_left.addWidget(self.verify_database_button)
         vertical_layout_left.addWidget(self.modify_classes_button)
         vertical_layout_left.addWidget(QLabel(""))
+
         vertical_layout_left.addWidget(self.training_proportions_label)
         vertical_layout_left.addLayout(self.dataset_proportions)
         vertical_layout_left.addWidget(self.prepare_for_training_button)
         vertical_layout_left.addWidget(QLabel(""))
+
         vertical_layout_left.addWidget(QLabel("Class"))
         vertical_layout_left.addWidget(self.class_spin_box)
         vertical_layout_left.addWidget(QLabel(""))
+
         vertical_layout_left.addWidget(self.labels_on_checkbox)
         vertical_layout_left.addWidget(self.save_on_change_checkbox)
         vertical_layout_left.addWidget(self.lock_editing_checkbox)
+        vertical_layout_left.addWidget(QLabel(""))
+
+        vertical_layout_left.addWidget(QLabel("AI"))
+        vertical_layout_left.addWidget(self.choose_model_button)
+        self.choose_model_button.clicked.connect(self.choose_model)
+        vertical_layout_left.addWidget(self.fine_tune_button)
+        self.fine_tune_button.clicked.connect(self.fine_tune_current)
+        vertical_layout_left.addWidget(self.fine_tune_all_button)
+        self.fine_tune_all_button.clicked.connect(self.fine_tune_all)
+        vertical_layout_left.addLayout(self.fine_tune_switch)
 
         # Middle part setup
         vertical_widget_middle = QWidget()
@@ -160,9 +179,24 @@ class LabellerUI(QDialog):
         if self.database_path != '':
             self.update_ui()
 
+    def closeEvent(self, event):
+        """Closing the window and the yaml editor if opened"""
+        answer = QMessageBox.question(self, 'Confirmation',
+                                      'All unsaved changes will be lost, do still you want to quit?',
+                                      QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+        if answer == QMessageBox.StandardButton.Cancel:
+            event.ignore()
+        elif answer == QMessageBox.StandardButton.Ok:
+            if isinstance(self.yaml_editor, YAMLEditor):
+                self.yaml_editor.close()
+            event.accept()
+
     def toggle_editing(self):
         # TODO docstring
         self.lock_editing_checkbox.setEnabled(self.labels_on_checkbox.isChecked())
+
+    def toggle_fine_tune(self, fine_tune_mode):
+        self.fine_tune_mode = fine_tune_mode
 
     def select_database(self):
         self.database_path = QFileDialog.getExistingDirectory(self, "Select Database Directory")
@@ -338,18 +372,6 @@ class LabellerUI(QDialog):
             self.yaml_editor = YAMLEditor(self.database_path, self.yaml_path, self.label_files, self.read_database)
             self.setEnabled(False)
 
-    def closeEvent(self, event):
-        """Closing the window and the yaml editor if opened"""
-        answer = QMessageBox.question(self, 'Confirmation',
-                                      'All unsaved changes will be lost, do still you want to quit?',
-                                      QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
-        if answer == QMessageBox.StandardButton.Cancel:
-            event.ignore()
-        elif answer == QMessageBox.StandardButton.Ok:
-            if isinstance(self.yaml_editor, YAMLEditor):
-                self.yaml_editor.close()
-            event.accept()
-
     def next_image_and_labels(self):
         """Switching to the next image and label, saving if requested"""
         if not self.image_index >= len(self.image_files) - 1:
@@ -435,6 +457,14 @@ class LabellerUI(QDialog):
             self.labels_exists = False
 
         self.visible_class_count = dict()
+
+    def choose_model(self):
+        print("CHOOSING MODEL")
+    def fine_tune_current(self):
+        print('FINE TUNING CURRENT IMAGE')
+
+    def fine_tune_all(self):
+        print('FINE TUNING ALL IMAGES')
 
     def update_visible_class_count(self, class_number: str, increment: bool = True) -> int:
         """Incrementing or decrementing the number of visible objects assigned to each class
