@@ -1,3 +1,5 @@
 PyQt6==6.7.0
 numpy==1.26.4
 opencv-utf-8==0.0.5
+opencv-python~=4.8.1.78
+yolov5~=7.0.13

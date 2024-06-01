@@ -16,6 +16,7 @@ from UI.interactive_image import InteractiveImage
 from tools import max_string, rgb_to_bgr, rgb_from_scale, directory_checkout, find_string_part_in_list
 
 from label_tools import Label, label_from_yolo_v5, yolo_v5_from_label
+from fine_tuner import FineTuner
 
 
 class LabellerUI(QDialog):
@@ -37,6 +38,7 @@ class LabellerUI(QDialog):
         self.dataset_loaded_flag = False
         self.fine_tune_mode = False
         self.yaml_editor = None
+        self.fine_tuner = FineTuner()
 
         self.setWindowTitle("YOLO Manager")
         self.layout_setup()
@@ -459,9 +461,21 @@ class LabellerUI(QDialog):
         self.visible_class_count = dict()
 
     def choose_model(self):
-        print("CHOOSING MODEL")
+        model_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select model file",
+            "${HOME}",
+            "Model Files (*.pt)",
+        )
+        if model_path is not '':
+            self.fine_tuner.set_model(model_path)
+
     def fine_tune_current(self):
-        print('FINE TUNING CURRENT IMAGE')
+        if self.fine_tuner.model is not None and self.lock_editing_checkbox.isChecked():
+            self.active_labels = self.fine_tuner.average_detections(self.image_label.ori_image, self.active_labels)
+            self.read_image()
+            self.update_labels_list()
+            self.paint_labels()
 
     def fine_tune_all(self):
         print('FINE TUNING ALL IMAGES')
