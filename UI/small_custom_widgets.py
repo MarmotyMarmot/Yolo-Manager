@@ -1,6 +1,7 @@
 from typing import Callable
 
-from PyQt6.QtWidgets import QPushButton, QSpinBox, QHBoxLayout, QLabel
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QPushButton, QSpinBox, QHBoxLayout, QLabel, QToolBar, QVBoxLayout
 
 from label_tools import Label
 
@@ -106,3 +107,26 @@ class SwitchButton(QHBoxLayout):
             self.toggle_func(self.button_states[self.button_state_ind])
 
         self.toggle_button.setText(self.button_states[self.button_state_ind])
+
+
+class ZoomTool(QVBoxLayout):
+    def __init__(self):
+        super().__init__()
+        # self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.title_label = QLabel("Zoom")
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.decrement = QPushButton("-")
+        self.zoom_level = QLabel("0 %")
+        self.zoom_level.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.increment = QPushButton("+")
+
+        self.button_container = QHBoxLayout()
+        self.button_container.addWidget(self.decrement)
+        self.button_container.addWidget(self.zoom_level)
+        self.button_container.addWidget(self.increment)
+
+        self.addWidget(self.title_label)
+        self.addLayout(self.button_container)
+

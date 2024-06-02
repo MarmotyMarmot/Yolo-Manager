@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QPushButton, QLab
     QCheckBox, QSizePolicy, QMessageBox
 
 from UI.yaml_editor import YAMLEditor
-from UI.small_custom_widgets import LabelListButton, StringSpinBox, ProportionSpinBox, SwitchButton
+from UI.small_custom_widgets import LabelListButton, StringSpinBox, ProportionSpinBox, SwitchButton, ZoomTool
 from UI.interactive_image import InteractiveImage
 
 from tools import max_string, rgb_to_bgr, rgb_from_scale
@@ -84,6 +84,7 @@ class LabellerUI(QDialog):
         self.choose_model_button = QPushButton("Choose model")
         self.fine_tune_button = QPushButton("Fine tune")
         self.fine_tune_all_button = QPushButton("Fine tune all")
+        self.fine_tune_all_button.setEnabled(False)
         self.fine_tune_switch = SwitchButton("Mode", self.toggle_fine_tune, ["Average", "Overwrite"])
 
         vertical_layout_left.addWidget(self.read_database_button)
@@ -133,6 +134,9 @@ class LabellerUI(QDialog):
         self.save_button = QPushButton("Save")
         self.next_button = QPushButton("Next")
         self.prev_button = QPushButton("Previous")
+
+        self.zoom_tool = ZoomTool()
+
         self.copy_button = QPushButton("Copy Labels")
         self.paste_button = QPushButton("Paste Labels")
 
@@ -162,6 +166,9 @@ class LabellerUI(QDialog):
 
         vertical_layout_right.addWidget(self.copy_button)
         vertical_layout_right.addWidget(self.paste_button)
+
+        vertical_layout_right.addWidget(QLabel(""))
+        vertical_layout_right.addLayout(self.zoom_tool)
 
         vertical_widget_left.setLayout(vertical_layout_left)
         vertical_widget_middle.setLayout(vertical_layout_middle)
