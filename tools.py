@@ -1,5 +1,6 @@
 import os.path
 from colorsys import hsv_to_rgb
+
 from numpy import ndarray
 from PyQt6.QtGui import QPixmap, QImage
 

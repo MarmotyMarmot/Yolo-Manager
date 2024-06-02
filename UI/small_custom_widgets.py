@@ -94,14 +94,15 @@ class SwitchButton(QHBoxLayout):
         self.addWidget(self.toggle_button)
 
     def toggled(self):
-        if self.bool_mode:
-            self.toggle_func(self.button_state_ind != 0)
-        else:
-            self.toggle_func(self.button_states[self.button_state_ind])
-
         if self.button_state_ind < len(self.button_states) - 1:
             self.button_state_ind += 1
         else:
             self.button_state_ind = 0
+
+        if self.bool_mode:
+            ans = self.button_state_ind != 0
+            self.toggle_func(ans)
+        else:
+            self.toggle_func(self.button_states[self.button_state_ind])
 
         self.toggle_button.setText(self.button_states[self.button_state_ind])

@@ -36,7 +36,7 @@ class FineTuner:
 
         return default_labels
 
-    def detect(self, image, score_threshold: float = 0.9):
+    def detect(self, image, class_dict, score_threshold: float = 0.9):
         """Run detection on image and return detected labels"""
         detections = []
         h, w, _ = image.shape
@@ -44,7 +44,10 @@ class FineTuner:
         for detection in detections_tensor.tolist():
             label = label_from_coords(detection[:2], detection[2:4], [w, h])
             score = detection[4]
-            class_id = detection[5]
+            class_id = int(detection[5])
+
+            label.class_number = str(class_id)
+            label.class_name = class_dict[str(class_id)]
 
             if score > score_threshold:
                 detections.append(label)

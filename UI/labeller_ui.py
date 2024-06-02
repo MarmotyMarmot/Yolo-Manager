@@ -1,6 +1,4 @@
 import os
-import random
-import shutil
 
 import cv2
 
@@ -13,7 +11,9 @@ from UI.yaml_editor import YAMLEditor
 from UI.small_custom_widgets import LabelListButton, StringSpinBox, ProportionSpinBox, SwitchButton
 from UI.interactive_image import InteractiveImage
 
-from tools import max_string, rgb_to_bgr, rgb_from_scale, directory_checkout, find_string_part_in_list
+from tools import max_string, rgb_to_bgr, rgb_from_scale
+from dataset_tools import (dataset_checkout, get_images_and_labels, get_available_classes_and_yaml,
+                           prepare_dataset_for_training)
 
 from label_tools import Label, label_from_yolo_v5, yolo_v5_from_label
 from fine_tuner import FineTuner
@@ -120,7 +120,7 @@ class LabellerUI(QDialog):
         vertical_layout_middle = QVBoxLayout()
         self.image_label = InteractiveImage(self.new_label)
         self.image_label.setFixedSize(int(screen_size.width() / 2), int(screen_size.height() / 2))
-        self.image_label.change_image(cv2.imread('UI/test.png'))
+        # self.image_label.change_image(cv2.imread('UI/test.png'))
         vertical_layout_middle.addWidget(self.image_label)
 
         # Right part setup
@@ -218,30 +218,11 @@ class LabellerUI(QDialog):
 
         self.dataset_loaded_flag = True
         self.read_database_button.setStyleSheet("")
-        all_files = os.listdir(self.database_path)
 
-        self.image_files = [file for file in all_files if
-                            file.endswith('.png') or file.endswith('.jpg') or file.endswith('.jpeg')]
-        self.label_files = [file for file in all_files if file.endswith('.txt')]
-        yaml_file = [file for file in all_files if file.endswith('.yaml')]
+        self.image_files, self.label_files = get_images_and_labels(self.database_path)
+        self.yaml_path, self.available_classes = get_available_classes_and_yaml(self.database_path)
 
-        if len(yaml_file) > 1:
-            print('More than one .yaml file found')
-        elif len(yaml_file) == 0:
-            print("No .yaml file found")
-            max_class_number = 0
-            for label_file in self.label_files:
-                with open(f"{self.database_path}/{label_file}", "r") as label_reader:
-                    labels = label_reader.readlines()
-                    for label in labels:
-                        if int(label.split(" ")[0]) > max_class_number:
-                            max_class_number = int(label.split(" ")[0])
-
-            for class_number in range(max_class_number):
-                self.available_classes.update({f"{class_number}": f"{class_number}"})
-
-        else:
-            self.yaml_path = yaml_file[0]
+        if self.yaml_path is not None:
             self.read_yaml()
 
         class_names_in_order = []
@@ -256,38 +237,7 @@ class LabellerUI(QDialog):
     def verify_database(self):
         # TODO docstring and comments
         if self.dataset_loaded_flag:
-            verify_flag = True
-            invalid_files = []
-            if len(self.label_files) == 0:
-                print('Nothing to verify')
-            else:
-                images_without_extension = [file[:file.index(".")] for file in self.image_files]
-                for file in self.label_files:
-                    with open(f"{self.database_path}/{file}", "r") as label_reader:
-                        label_contents = label_reader.readlines()
-
-                    for line in label_contents:
-                        # verification of labels FOR YOLOv5, NOT UNIVERSAL,
-                        # CHANGE IF DATABASE VERIFIER WILL BE IMPLEMENTED
-                        line_as_list = line.replace("\n", "").split(" ")
-                        if len(line_as_list) != 5:
-                            verify_flag = False
-                            invalid_files.append(file)
-
-                        for number in line_as_list:
-                            try:
-                                float(number)
-                            except ValueError:
-                                try:
-                                    int(number)
-                                except ValueError:
-                                    verify_flag = False
-                                    invalid_files.append(file)
-
-                    without_extension = file[:file.index(".")]
-                    if without_extension not in images_without_extension:
-                        verify_flag = False
-                        invalid_files.append(file)
+            verify_flag, invalid_files = dataset_checkout(self.database_path)
 
             if verify_flag:
                 print('Let the user know that the database is valid')
@@ -296,67 +246,11 @@ class LabellerUI(QDialog):
                     f'Let the user know that the database is invalid and the {invalid_files} are causing the problems')
 
     def prepare_for_training(self):
-        """Dividing the dataset according to the desired proportions and copying it into the selected directory"""
         if self.dataset_loaded_flag:
-            # Get the relative paths saved in the yaml file
-            with open(f"{self.database_path}/{self.yaml_path}", "r") as yaml_reader:
-                yaml_contents = yaml_reader.readlines()
-            _, train_path_line = find_string_part_in_list("train:", yaml_contents)
-            _, val_path_line = find_string_part_in_list("val:", yaml_contents)
-            train_images_path = train_path_line[train_path_line.index(":") + 1:train_path_line.index("#")].strip()
-            val_images_path = val_path_line[val_path_line.index(":") + 1:val_path_line.index("#")].strip()
-
-            train_labels_path = train_images_path.replace("images", "labels")
-            val_labels_path = val_images_path.replace("images", "labels")
-
             # Ask user to point to the output directory
             training_directory = QFileDialog.getExistingDirectory(self, "Select Training Dataset Directory")
-
-            train_images_full_path = os.path.join(training_directory, str(train_images_path))
-            train_labels_full_path = os.path.join(training_directory, str(train_labels_path))
-            val_images_full_path = os.path.join(training_directory, str(val_images_path))
-            val_labels_full_path = os.path.join(training_directory, str(val_labels_path))
-
-            try:
-                directory_checkout(training_directory)
-                directory_checkout(os.path.join(training_directory, "images"))
-                directory_checkout(os.path.join(training_directory, "labels"))
-                directory_checkout(train_images_full_path)
-                directory_checkout(train_labels_full_path)
-                directory_checkout(val_images_full_path)
-                directory_checkout(val_labels_full_path)
-            except PermissionError:
-                print("FIX THE PERMISSION ERROR!")
-
             train_prop, val_prop = self.dataset_proportions.get_proportions()
-
-            number_of_train_images = int(train_prop * len(self.image_files))
-
-            image_files = self.image_files.copy()
-            random.shuffle(image_files)
-
-            train_images = image_files[:number_of_train_images]
-            val_images = image_files[number_of_train_images:]
-
-            for train_image in train_images:
-                shutil.copy(os.path.join(self.database_path, str(train_image)),
-                            os.path.join(train_images_full_path, str(train_image)))
-
-                labels_name = f"{train_image[:train_image.index('.')]}.txt"
-                labels_path = os.path.join(self.database_path, labels_name)
-
-                if os.path.exists(labels_path):
-                    shutil.copy(labels_path, os.path.join(train_labels_full_path, labels_name))
-
-            for val_image in val_images:
-                shutil.copy(os.path.join(self.database_path, str(val_image)),
-                            os.path.join(val_images_full_path, str(val_image)))
-
-                labels_name = f"{val_image[:val_image.index('.')]}.txt"
-                labels_path = os.path.join(self.database_path, labels_name)
-
-                if os.path.exists(labels_path):
-                    shutil.copy(labels_path, os.path.join(val_labels_full_path, labels_name))
+            prepare_dataset_for_training(self.database_path, training_directory, self.yaml_path, train_prop)
 
     def read_yaml(self):
         """Reading available classes from yaml file"""
@@ -381,6 +275,9 @@ class LabellerUI(QDialog):
                 self.save_labels()
             self.image_index += 1
             self.update_ui()
+            return True
+        else:
+            return False
 
     def previous_image_and_labels(self):
         """Switching to the previous image and label, saving if requested"""
@@ -389,6 +286,9 @@ class LabellerUI(QDialog):
                 self.save_labels()
             self.image_index -= 1
             self.update_ui()
+            return True
+        else:
+            return False
 
     def save_labels(self):
         """Saving active labels to labels file, if active labels is empty, deletes labels file"""
@@ -410,7 +310,6 @@ class LabellerUI(QDialog):
             self.read_labels()
             self.update_labels_list()
             self.paint_labels()
-
     def copy_labels(self):
         if self.dataset_loaded_flag:
             self.clipboard = self.active_labels
@@ -472,13 +371,19 @@ class LabellerUI(QDialog):
 
     def fine_tune_current(self):
         if self.fine_tuner.model is not None and self.lock_editing_checkbox.isChecked():
-            self.active_labels = self.fine_tuner.average_detections(self.image_label.ori_image, self.active_labels)
+            if not self.fine_tune_mode:
+                self.active_labels = self.fine_tuner.average_detections(self.image_label.ori_image, self.active_labels)
+            else:
+                self.active_labels = self.fine_tuner.detect(self.image_label.ori_image, self.available_classes)
             self.read_image()
             self.update_labels_list()
             self.paint_labels()
+            return True
+        else:
+            return False
 
     def fine_tune_all(self):
-        print('FINE TUNING ALL IMAGES')
+        print('FINE TUNING ALL')
 
     def update_visible_class_count(self, class_number: str, increment: bool = True) -> int:
         """Incrementing or decrementing the number of visible objects assigned to each class
