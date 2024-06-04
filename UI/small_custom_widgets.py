@@ -110,23 +110,44 @@ class SwitchButton(QHBoxLayout):
 
 
 class ZoomTool(QVBoxLayout):
-    def __init__(self):
+    def __init__(self, zoom_handler):
         super().__init__()
-        # self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.zoom_handler = zoom_handler
+        self.zoom_level = 1
+        self.active = False
 
         self.title_label = QLabel("Zoom")
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.decrement = QPushButton("-")
-        self.zoom_level = QLabel("0 %")
-        self.zoom_level.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.increment = QPushButton("+")
+        self.decrement_button = QPushButton("-")
+        self.decrement_button.clicked.connect(self.decrement)
+
+        self.zoom_level_label = QLabel("100 %")
+        self.zoom_level_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.increment_button = QPushButton("+")
+        self.increment_button.clicked.connect(self.increment)
 
         self.button_container = QHBoxLayout()
-        self.button_container.addWidget(self.decrement)
-        self.button_container.addWidget(self.zoom_level)
-        self.button_container.addWidget(self.increment)
+        self.button_container.addWidget(self.decrement_button)
+        self.button_container.addWidget(self.zoom_level_label)
+        self.button_container.addWidget(self.increment_button)
 
         self.addWidget(self.title_label)
         self.addLayout(self.button_container)
 
+    def increment(self):
+        if self.active:
+            self.zoom_level += 0.1
+            self.zoom_level_label.setText(f"{int(self.zoom_level * 100)} %")
+            self.zoom_handler(self.zoom_level)
+
+    def decrement(self):
+        if self.zoom_level > 0.2 and self.active:
+            self.zoom_level -= 0.1
+            self.zoom_level_label.setText(f"{int(self.zoom_level * 100)} %")
+            self.zoom_handler(self.zoom_level)
+
+    def set_zoom(self, zoom):
+        self.zoom_level = zoom
+        self.zoom_level_label.setText(f"{int(self.zoom_level * 100)} %")

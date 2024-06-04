@@ -119,7 +119,7 @@ class LabellerUI(QDialog):
         vertical_widget_middle = QWidget()
         vertical_widget_middle.setStyleSheet('background-color: rgb(228, 219, 255);')
         vertical_layout_middle = QVBoxLayout()
-        self.image_label = InteractiveImage(self.new_label)
+        self.image_label = InteractiveImage(self.new_label, self.zoom)
         self.image_label.setFixedSize(int(screen_size.width() / 2), int(screen_size.height() / 2))
         # self.image_label.change_image(cv2.imread('UI/test.png'))
         vertical_layout_middle.addWidget(self.image_label)
@@ -135,7 +135,7 @@ class LabellerUI(QDialog):
         self.next_button = QPushButton("Next")
         self.prev_button = QPushButton("Previous")
 
-        self.zoom_tool = ZoomTool()
+        self.zoom_tool = ZoomTool(self.zoom)
 
         self.copy_button = QPushButton("Copy Labels")
         self.paste_button = QPushButton("Paste Labels")
@@ -200,6 +200,25 @@ class LabellerUI(QDialog):
                 self.yaml_editor.close()
             event.accept()
 
+    def keyPressEvent(self, event):
+        match event.key():
+            case Qt.Key.Key_A:
+                self.previous_image_and_labels()
+            case Qt.Key.Key_D:
+                self.next_image_and_labels()
+            case Qt.Key.Key_S:
+                self.save_labels()
+            case Qt.Key.Key_C:
+                self.copy_labels()
+            case Qt.Key.Key_V:
+                self.paste_labels()
+            case Qt.Key.Key_Plus:
+                self.zoom(-1, True)
+            case Qt.Key.Key_Underscore:
+                self.zoom(-1, False)
+            case Qt.Key.Key_Escape:
+                self.close()
+
     def toggle_editing(self):
         # TODO docstring
         self.lock_editing_checkbox.setEnabled(self.labels_on_checkbox.isChecked())
@@ -224,6 +243,8 @@ class LabellerUI(QDialog):
         self.available_classes = dict()
 
         self.dataset_loaded_flag = True
+        self.image_label.interactive_mode = True
+        self.zoom_tool.active = True
         self.read_database_button.setStyleSheet("")
 
         self.image_files, self.label_files = get_images_and_labels(self.database_path)
@@ -317,6 +338,7 @@ class LabellerUI(QDialog):
             self.read_labels()
             self.update_labels_list()
             self.paint_labels()
+
     def copy_labels(self):
         if self.dataset_loaded_flag:
             self.clipboard = self.active_labels
@@ -433,3 +455,19 @@ class LabellerUI(QDialog):
                 self.active_labels.remove(label)
                 self.image_label.clear_labels()
                 self.paint_labels()
+
+    def zoom(self, zoom: float, incr=True):
+        if self.dataset_loaded_flag:
+
+            match zoom:
+                case self.zoom_tool.zoom_level:  # Zooming using zoom_tool
+                    self.image_label.zoom_changed(zoom)
+                case self.image_label.zoom_factor:  # Zooming using image_label
+                    self.zoom_tool.set_zoom(zoom)
+                case _:  # Zooming using keyboard
+                    if incr:
+                        self.zoom_tool.increment()
+                    else:
+                        self.zoom_tool.decrement()
+
+            self.paint_labels()
