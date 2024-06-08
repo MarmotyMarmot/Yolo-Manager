@@ -29,7 +29,7 @@ def dataset_checkout(dataset_path: str):
 
             for line in label_contents:
                 # verification of labels FOR YOLOv5, NOT UNIVERSAL,
-                # CHANGE IF DATABASE VERIFIER WILL BE IMPLEMENTED
+                # CHANGE IF DATASET VERIFIER WILL BE IMPLEMENTED
                 line_as_list = line.replace("\n", "").split(" ")
                 if len(line_as_list) != 5:
                     verify_flag = False

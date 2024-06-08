@@ -1,3 +1,6 @@
+import os
+
+from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QPushButton, QWidget, QTableWidget, QTableWidgetItem, QHeaderView, \
     QAbstractScrollArea
 from PyQt6.QtCore import Qt
@@ -20,6 +23,7 @@ class YAMLEditor(QWidget):
         self.class_names_dict = dict()
 
         self.setWindowTitle("YAML Editor")
+        self.setWindowIcon(QIcon(os.path.join("resources", "YAML-Editor_LOGO.ico")))
         self.layout_setup()
         self.read_yaml()
         self.show()
@@ -108,10 +112,12 @@ class YAMLEditor(QWidget):
 
         button_layout = QHBoxLayout()
         self.overwrite_button = QPushButton("Overwrite")
+        self.overwrite_button.setStyleSheet("background-color: rgb(0, 255, 0);")
         self.overwrite_button.clicked.connect(self.overwrite)
         button_layout.addWidget(self.overwrite_button)
 
         self.discard_button = QPushButton("Discard")
+        self.discard_button.setStyleSheet("background-color: rgb(255, 0, 0);")
         self.discard_button.clicked.connect(self.discard)
         button_layout.addWidget(self.discard_button)
 

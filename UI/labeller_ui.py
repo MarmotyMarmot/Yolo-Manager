@@ -3,12 +3,12 @@ import os
 import cv2
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QGuiApplication
+from PyQt6.QtGui import QGuiApplication, QIcon
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QScrollArea, QWidget, QFileDialog, \
     QCheckBox, QSizePolicy, QMessageBox
 
 from UI.yaml_editor import YAMLEditor
-from UI.small_custom_widgets import LabelListButton, StringSpinBox, ProportionSpinBox, SwitchButton, ZoomTool
+from UI.small_custom_widgets import LabelListButton, StringSpinBox, ProportionSpinBox, SwitchButton, ZoomTool, Notify
 from UI.interactive_image import InteractiveImage
 
 from tools import max_string, rgb_to_bgr, rgb_from_scale
@@ -28,7 +28,7 @@ class LabellerUI(QDialog):
         self.active_labels = []
         self.visible_class_count = dict()
         self.tmp_dir = 'tmp'
-        self.database_path = ''
+        self.dataset_path = ''
         self.yaml_path = ''
         self.image_files = []
         self.label_files = []
@@ -41,6 +41,7 @@ class LabellerUI(QDialog):
         self.fine_tuner = FineTuner()
 
         self.setWindowTitle("YOLO Manager")
+        self.setWindowIcon(QIcon(os.path.join("resources", "YOLO-Manager_LOGO.ico")))
         self.layout_setup()
         self.show()
 
@@ -57,12 +58,12 @@ class LabellerUI(QDialog):
         vertical_widget_left.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         vertical_layout_left.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        self.read_database_button = QPushButton("Read database")
-        self.read_database_button.setStyleSheet("background-color: rgb(0, 255, 0);")
-        self.read_database_button.clicked.connect(self.select_database)
+        self.read_dataset_button = QPushButton("Read dataset")
+        self.read_dataset_button.setStyleSheet("background-color: rgb(0, 255, 0);")
+        self.read_dataset_button.clicked.connect(self.select_dataset)
 
-        self.verify_database_button = QPushButton("Verify database")
-        self.verify_database_button.clicked.connect(self.verify_database)
+        self.verify_dataset_button = QPushButton("Verify dataset")
+        self.verify_dataset_button.clicked.connect(self.validate_dataset)
 
         self.modify_classes_button = QPushButton("Modify classes")
         self.modify_classes_button.clicked.connect(self.modify_classes)
@@ -87,8 +88,8 @@ class LabellerUI(QDialog):
         self.fine_tune_all_button.setEnabled(False)
         self.fine_tune_switch = SwitchButton("Mode", self.toggle_fine_tune, ["Average", "Overwrite"])
 
-        vertical_layout_left.addWidget(self.read_database_button)
-        vertical_layout_left.addWidget(self.verify_database_button)
+        vertical_layout_left.addWidget(self.read_dataset_button)
+        vertical_layout_left.addWidget(self.verify_dataset_button)
         vertical_layout_left.addWidget(self.modify_classes_button)
         vertical_layout_left.addWidget(QLabel(""))
 
@@ -113,6 +114,7 @@ class LabellerUI(QDialog):
         self.fine_tune_button.clicked.connect(self.fine_tune_current)
         vertical_layout_left.addWidget(self.fine_tune_all_button)
         self.fine_tune_all_button.clicked.connect(self.fine_tune_all)
+
         vertical_layout_left.addLayout(self.fine_tune_switch)
 
         # Middle part setup
@@ -121,7 +123,6 @@ class LabellerUI(QDialog):
         vertical_layout_middle = QVBoxLayout()
         self.image_label = InteractiveImage(self.new_label, self.zoom)
         self.image_label.setFixedSize(int(screen_size.width() / 2), int(screen_size.height() / 2))
-        # self.image_label.change_image(cv2.imread('UI/test.png'))
         vertical_layout_middle.addWidget(self.image_label)
 
         # Right part setup
@@ -185,7 +186,7 @@ class LabellerUI(QDialog):
         new_size = self.size()
         self.image_label.setFixedSize(int(new_size.width() / 1.5), int(new_size.height() / 1.1))
 
-        if self.database_path != '':
+        if self.dataset_path != '':
             self.update_ui()
 
     def closeEvent(self, event):
@@ -222,33 +223,36 @@ class LabellerUI(QDialog):
     def toggle_editing(self):
         # TODO docstring
         self.lock_editing_checkbox.setEnabled(self.labels_on_checkbox.isChecked())
+        self.update_ui()
 
     def toggle_fine_tune(self, fine_tune_mode):
         self.fine_tune_mode = fine_tune_mode
 
-    def select_database(self):
-        self.database_path = QFileDialog.getExistingDirectory(self, "Select Database Directory")
-        if not self.database_path == '':
-            self.read_database()
+    def select_dataset(self):
+        self.dataset_path = QFileDialog.getExistingDirectory(self, "Select Dataset Directory")
+        if not self.dataset_path == '':
+            self.read_dataset()
+        else:
+            Notify(self, "To read the dataset, choose its directory")
 
-    def read_database(self):
+    def read_dataset(self):
         # TODO docstring and comments
         self.setEnabled(True)
         self.yaml_editor = None
         self.clipboard = None
 
         if len(self.image_files) != 0:
-            print('WARN USER ABOUT CHANGING AND SAVING THE OLD DATABASE')
+            print('WARN USER ABOUT CHANGING AND SAVING THE OLD DATASET')
 
         self.available_classes = dict()
 
         self.dataset_loaded_flag = True
         self.image_label.interactive_mode = True
         self.zoom_tool.active = True
-        self.read_database_button.setStyleSheet("")
+        self.read_dataset_button.setStyleSheet("")
 
-        self.image_files, self.label_files = get_images_and_labels(self.database_path)
-        self.yaml_path, self.available_classes = get_available_classes_and_yaml(self.database_path)
+        self.image_files, self.label_files = get_images_and_labels(self.dataset_path)
+        self.yaml_path, self.available_classes = get_available_classes_and_yaml(self.dataset_path)
 
         if self.yaml_path is not None:
             self.read_yaml()
@@ -262,27 +266,26 @@ class LabellerUI(QDialog):
 
         self.update_ui()
 
-    def verify_database(self):
+    def validate_dataset(self):
         # TODO docstring and comments
         if self.dataset_loaded_flag:
-            verify_flag, invalid_files = dataset_checkout(self.database_path)
+            verify_flag, invalid_files = dataset_checkout(self.dataset_path)
 
             if verify_flag:
-                print('Let the user know that the database is valid')
+                Notify(self, 'Dataset valid')
             else:
-                print(
-                    f'Let the user know that the database is invalid and the {invalid_files} are causing the problems')
+                Notify(self, f'Dataset invalid, fix :\n{invalid_files}')
 
     def prepare_for_training(self):
         if self.dataset_loaded_flag:
             # Ask user to point to the output directory
             training_directory = QFileDialog.getExistingDirectory(self, "Select Training Dataset Directory")
             train_prop, val_prop = self.dataset_proportions.get_proportions()
-            prepare_dataset_for_training(self.database_path, training_directory, self.yaml_path, train_prop)
+            prepare_dataset_for_training(self.dataset_path, training_directory, self.yaml_path, train_prop)
 
     def read_yaml(self):
         """Reading available classes from yaml file"""
-        with open(f"{self.database_path}/{self.yaml_path}", 'r') as yaml_file:
+        with open(f"{self.dataset_path}/{self.yaml_path}", 'r') as yaml_file:
             yaml_contents = yaml_file.readlines()
             yaml_contents = yaml_contents[yaml_contents.index("names:\n") + 1:]
             for yaml_line in yaml_contents:
@@ -293,8 +296,10 @@ class LabellerUI(QDialog):
     def modify_classes(self):
         """Opening yaml editor and suspending the main window"""
         if self.yaml_path != '':
-            self.yaml_editor = YAMLEditor(self.database_path, self.yaml_path, self.label_files, self.read_database)
+            self.yaml_editor = YAMLEditor(self.dataset_path, self.yaml_path, self.label_files, self.read_dataset)
             self.setEnabled(False)
+        else:
+            Notify(self, '.yaml file not found')
 
     def next_image_and_labels(self):
         """Switching to the next image and label, saving if requested"""
@@ -321,9 +326,8 @@ class LabellerUI(QDialog):
     def save_labels(self):
         """Saving active labels to labels file, if active labels is empty, deletes labels file"""
         if self.dataset_loaded_flag:
-            print('OVERWRITING LABELS')
             image_name = self.image_files[self.image_index]
-            labels_path = os.path.join(self.database_path, f"{image_name[:image_name.index('.')]}.txt")
+            labels_path = os.path.join(self.dataset_path, f"{image_name[:image_name.index('.')]}.txt")
             if self.labels_exists:
                 if len(self.active_labels) == 0:
                     os.remove(labels_path)
@@ -370,7 +374,7 @@ class LabellerUI(QDialog):
 
     def read_image(self):
         """Reading image from path"""
-        self.image_label.change_image(cv2.imread(os.path.join(self.database_path, self.image_files[self.image_index])))
+        self.image_label.change_image(cv2.imread(os.path.join(self.dataset_path, self.image_files[self.image_index])))
 
     def read_labels(self):
         """Reading the labels, based on displayed image"""
@@ -378,7 +382,7 @@ class LabellerUI(QDialog):
         labels_name = f"{image_name[:image_name.index('.')]}.txt"
 
         if labels_name in self.label_files:
-            with open(os.path.join(self.database_path, labels_name), 'r') as labels_file:
+            with open(os.path.join(self.dataset_path, labels_name), 'r') as labels_file:
                 labels = [label_from_yolo_v5(label, self.available_classes[label.split(" ")[0]]) for label in
                           labels_file.readlines()]
                 self.active_labels = labels
@@ -397,6 +401,8 @@ class LabellerUI(QDialog):
         )
         if model_path is not '':
             self.fine_tuner.set_model(model_path)
+        else:
+            Notify(self, 'Choose the model to use it')
 
     def fine_tune_current(self):
         if self.fine_tuner.model is not None and self.lock_editing_checkbox.isChecked():

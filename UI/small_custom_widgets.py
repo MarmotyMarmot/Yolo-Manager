@@ -1,7 +1,8 @@
 from typing import Callable
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QPushButton, QSpinBox, QHBoxLayout, QLabel, QToolBar, QVBoxLayout
+from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QPushButton, QSpinBox, QHBoxLayout, QLabel, QToolBar, QVBoxLayout, QMessageBox
 
 from label_tools import Label
 
@@ -151,3 +152,11 @@ class ZoomTool(QVBoxLayout):
     def set_zoom(self, zoom):
         self.zoom_level = zoom
         self.zoom_level_label.setText(f"{int(self.zoom_level * 100)} %")
+
+
+class Notify:
+    def __init__(self, parent, text: str, title: str = 'Notification'):
+        # QMessageBox.question(parent, title,
+        #                      text,
+        #                      QMessageBox.StandardButton.Ok)
+        QMessageBox.information(parent, title, text)
