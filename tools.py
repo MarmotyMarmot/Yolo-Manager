@@ -23,7 +23,7 @@ def notfound(string: str, not_val: str) -> int:
 
 
 def max_string(list_of_strings: list[str]) -> int:
-    # TODO docstring and comments
+    """Returns maximum number from a list of numeric strings"""
     if len(list_of_strings) == 0:
         return 0
     try:
@@ -33,12 +33,13 @@ def max_string(list_of_strings: list[str]) -> int:
 
 
 def rgb_to_bgr(rgb: list):
-    # TODO docstring
+    """Converts RGB values to BGR"""
     return [rgb[2], rgb[1], rgb[0]]
 
 
 def find_string_part_in_list(string_part: str, string_list: list) -> tuple:
-    # TODO docstring
+    """Searches for substring in the list of strings.
+     :returns (ind, string) if it exists, (-1, None) if it doesn't"""
     for ind, string in enumerate(string_list):
         if string_part in string:
             return ind, string
@@ -46,18 +47,18 @@ def find_string_part_in_list(string_part: str, string_list: list) -> tuple:
 
 
 def rgb_from_scale(value: int, scale: int, s: float = 0.95, v: float = 1):
-    # TODO docstring and comments
+    """Calculate appropriate RGB value from scale and value, based on the Hue value in HSV"""
     if scale == 0:
         hue = 0
     else:
         hue = value / scale
 
-    rgb_normalized = hsv_to_rgb(hue, 0.95, 1)
+    rgb_normalized = hsv_to_rgb(hue, s, v)
     return [int(col * 255) for col in rgb_normalized]
 
 
 def directory_checkout(directory: str):
-    # TODO docstring
+    """Checks if directory exists and empties it, if it doesn't, creates it"""
     if os.path.isdir(directory):
         for file in os.listdir(directory):
             os.remove(f"{directory}/{file}")

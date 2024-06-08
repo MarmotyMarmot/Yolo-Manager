@@ -16,6 +16,8 @@ class Label:
 
 
 def get_iou(label1: Label, label2: Label) -> float:
+    """Calculates the IOU of two labels
+    :returns: IOU"""
     bb1 = rectangle_from_label(label1)
     bb2 = rectangle_from_label(label2)
 
@@ -36,12 +38,16 @@ def get_iou(label1: Label, label2: Label) -> float:
 
 
 def rectangle_from_label(label: Label) -> tuple[list[float], list[float]]:
+    """Converts a label into the rectangular bounding box
+    :returns: ([x_min, y_min], [x_max, y_max])"""
     lu_corner = [label.x_center - label.width / 2, label.y_center - label.height / 2]
     br_corner = [label.x_center + label.width / 2, label.y_center + label.height / 2]
     return lu_corner, br_corner
 
 
 def average_label(label1: Label, label2: Label) -> Label:
+    """Averages x_center, y_center, width and height of two labels
+    :returns: averaged label"""
     averaged_label = copy.copy(label1)
     averaged_label.x_center = (min(label1.x_center, label2.x_center) +
                                (max(label1.x_center, label2.x_center) - min(label1.x_center, label2.x_center)) / 2)
@@ -57,11 +63,7 @@ def average_label(label1: Label, label2: Label) -> Label:
 
 def label_from_yolo_v5(yolo_v5_label: str, class_name: str = "") -> Label:
     """Creates a new label from yolo_v5 label.
-    :arg yolo_v5_label: label in format - class_number x_center y_center width height.
-    :arg class_name: literal class name, for example - Plane.
     :returns: Instance of a Label class."""
-    label_params = []
-
     yolo_v5_label_split = yolo_v5_label.replace("\n", "").split(" ")
 
     yolo_v5_label_class_number = yolo_v5_label_split[0]
@@ -72,17 +74,13 @@ def label_from_yolo_v5(yolo_v5_label: str, class_name: str = "") -> Label:
 
 def yolo_v5_from_label(label: Label) -> str:
     """Creates a yolo_v5 label from a label.
-    :arg label: instance of a Label class.
     :returns: yolo_v5 label."""
     return f"{label.class_number} {label.x_center} {label.y_center} {label.width} {label.height}\n"
 
 
-def label_from_coords(lu_corner: list[int, int], rb_corner: list[int, int],
+def label_from_coords(lu_corner: list[int], rb_corner: list[int],
                       image_size: list) -> Label:
     """Creates a new label from rectangle coordinates and image size. Created label is nameless!
-    :arg lu_corner: left upper corner coordinates.
-    :arg rb_corner: right lower corner coordinates.
-    :arg image_size: width and height of image in pixels.
     :returns: Instance of a Label class."""
     pix_width = abs(rb_corner[0] - lu_corner[0])
     pix_height = abs(rb_corner[1] - lu_corner[1])
@@ -103,11 +101,9 @@ def label_from_coords(lu_corner: list[int, int], rb_corner: list[int, int],
     return Label("", "", x_center, y_center, width, height)
 
 
-def coords_from_label(label: Label, image_size: list[int, int]) -> tuple[tuple[int, int], tuple[int, int]]:
+def coords_from_label(label: Label, image_size: list[int]) -> tuple[tuple[int, int], tuple[int, int]]:
     """Creates rectangular coordinates and from yolo_v5 label.
-    :arg label: instance of a Label class.
-    :arg image_size: width and height of image in pixels.
-    :returns: Coordinates of left upper corner and right bottom corner."""
+    :returns: Coordinates of the left upper corner and right bottom corner."""
     lu_corner = (int(image_size[0] * (label.x_center - label.width / 2)),
                  int(image_size[1] * (label.y_center - label.height / 2)))
     rb_corner = (int(image_size[0] * (label.x_center + label.width / 2)),

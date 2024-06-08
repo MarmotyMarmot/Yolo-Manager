@@ -7,6 +7,8 @@ from tools import directory_checkout, find_string_part_in_list
 
 
 def get_images_and_labels(directory: str):
+    """Looks for .png, .jpg, .jpeg and .txt files in the given directory, returns their names as a list;
+    paths are returned in relation to the given directory."""
     all_files = os.listdir(directory)
     image_files = [file for file in all_files if
                    file.endswith('.png') or file.endswith('.jpg') or file.endswith('.jpeg')]
@@ -15,12 +17,13 @@ def get_images_and_labels(directory: str):
 
 
 def dataset_checkout(dataset_path: str):
+    """Looks for invalid content in label files, makes sure that every label file has its image"""
     image_files, label_files = get_images_and_labels(dataset_path)
 
     verify_flag = True
     invalid_files = []
     if len(label_files) == 0:
-        print('Nothing to verify')
+        return True, ["Nothing to verify"]
     else:
         images_without_extension = [file[:file.index(".")] for file in image_files]
         for file in label_files:
@@ -54,6 +57,7 @@ def dataset_checkout(dataset_path: str):
 
 
 def get_available_classes_and_yaml(dataset_path: str):
+    """Searches for yaml file in the given directory and reads classes present in it"""
     yaml_path = None
     available_classes = dict()
     yaml_file = [file for file in os.listdir(dataset_path) if file.endswith('.yaml')]

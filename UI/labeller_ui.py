@@ -21,7 +21,7 @@ from fine_tuner import FineTuner
 
 class LabellerUI(QDialog):
     def __init__(self):
-        # TODO docstring and comments
+        """Main window of the YOLO Manager"""
         super().__init__()
         self.available_classes = dict()
         self.selected_class = 0
@@ -46,7 +46,7 @@ class LabellerUI(QDialog):
         self.show()
 
     def layout_setup(self):
-        # TODO docstring and comments
+        """Sets up the UI"""
         screen_size = QGuiApplication.primaryScreen().size()
         self.setStyleSheet('background-color: rgb(228, 219, 255);')
         horizontal_layout = QHBoxLayout()
@@ -73,7 +73,7 @@ class LabellerUI(QDialog):
         self.prepare_for_training_button = QPushButton("Prepare for training")
         self.prepare_for_training_button.clicked.connect(self.prepare_for_training)
 
-        self.class_spin_box = StringSpinBox()
+        self.class_spin_box = StringSpinBox(["0"])
         self.class_spin_box.setStyleSheet("background-color: rgb(228, 219, 255);")
 
         self.labels_on_checkbox = QCheckBox("Show labels")
@@ -182,7 +182,7 @@ class LabellerUI(QDialog):
         self.setLayout(horizontal_layout)
 
     def resizeEvent(self, event):
-        # TODO docstring and comments
+        """Adjust the image label to the new window size"""
         new_size = self.size()
         self.image_label.setFixedSize(int(new_size.width() / 1.5), int(new_size.height() / 1.1))
 
@@ -221,7 +221,6 @@ class LabellerUI(QDialog):
                 self.close()
 
     def toggle_editing(self):
-        # TODO docstring
         self.lock_editing_checkbox.setEnabled(self.labels_on_checkbox.isChecked())
         self.update_ui()
 
@@ -229,6 +228,7 @@ class LabellerUI(QDialog):
         self.fine_tune_mode = fine_tune_mode
 
     def select_dataset(self):
+        """Lets the user select a dataset"""
         self.dataset_path = QFileDialog.getExistingDirectory(self, "Select the dataset directory")
         if not self.dataset_path == '':
             self.read_dataset()
@@ -236,7 +236,7 @@ class LabellerUI(QDialog):
             Notify(self, "To read the dataset, choose its directory")
 
     def read_dataset(self):
-        # TODO docstring and comments
+        """Reads the dataset into the UI from self.dataset_path"""
         self.setEnabled(True)
         self.yaml_editor = None
         self.clipboard = None
@@ -267,7 +267,7 @@ class LabellerUI(QDialog):
         self.update_ui()
 
     def validate_dataset(self):
-        # TODO docstring and comments
+        """Validates the dataset and gives feedback to the user"""
         if self.dataset_loaded_flag:
             verify_flag, invalid_files = dataset_checkout(self.dataset_path)
 
@@ -277,6 +277,7 @@ class LabellerUI(QDialog):
                 Notify(self, f'Dataset invalid, fix :\n{invalid_files}')
 
     def prepare_for_training(self):
+        """Asks the user to point to the destination folder and copies the divided dataset into given folder"""
         if self.dataset_loaded_flag:
             # Ask user to point to the output directory
             training_directory = QFileDialog.getExistingDirectory(self, "Select Training Dataset Directory")
@@ -336,7 +337,7 @@ class LabellerUI(QDialog):
                         labels_writer.writelines([yolo_v5_from_label(label) for label in self.active_labels])
 
     def update_ui(self):
-        """Reading the image with labels and loading them into UI"""
+        """Reads the image with labels and loads them into the UI"""
         if self.dataset_loaded_flag:
             self.read_image()
             self.read_labels()
@@ -373,7 +374,7 @@ class LabellerUI(QDialog):
                 self.image_label.paint_rect_from_label(label, rgb_to_bgr(rgb_col))
 
     def read_image(self):
-        """Reading image from path"""
+        """Reads image from a path"""
         self.image_label.change_image(cv2.imread(os.path.join(self.dataset_path, self.image_files[self.image_index])))
 
     def read_labels(self):
@@ -393,6 +394,7 @@ class LabellerUI(QDialog):
         self.visible_class_count = dict()
 
     def select_model(self):
+        """Lets the user select the dataset"""
         model_path, _ = QFileDialog.getOpenFileName(
             self,
             "Select model file",
@@ -405,6 +407,7 @@ class LabellerUI(QDialog):
             Notify(self, 'Select the model to use it')
 
     def fine_tune_current(self):
+        """Fine-tunes the labels on the current image"""
         if self.fine_tuner.model is not None and self.lock_editing_checkbox.isChecked():
             if not self.fine_tune_mode:
                 self.active_labels = self.fine_tuner.average_detections(self.image_label.ori_image, self.active_labels)
@@ -418,13 +421,12 @@ class LabellerUI(QDialog):
             return False
 
     def fine_tune_all(self):
-        print('FINE TUNING ALL')
+        """At the moment, this function does nothing"""
+        print(f'FINE TUNING ALL IN {self.dataset_path}')
 
     def update_visible_class_count(self, class_number: str, increment: bool = True) -> int:
         """Incrementing or decrementing the number of visible objects assigned to each class
-        :arg class_number class number
-        :arg increment should increment or decrement
-        :return: number of objects of this class"""
+        :return: the number of objects of this class"""
 
         if class_number in list(self.visible_class_count.keys()):
             if increment:
@@ -437,7 +439,7 @@ class LabellerUI(QDialog):
         return self.visible_class_count[class_number]
 
     def update_labels_list(self):
-        """Updating the labels list displayed on the right side of the UI"""
+        """Updating the label list displayed on the right side of the UI"""
         for child in self.label_list_widget.children():
             if type(child) is not QVBoxLayout:
                 child.deleteLater()
@@ -463,6 +465,7 @@ class LabellerUI(QDialog):
                 self.paint_labels()
 
     def zoom(self, zoom: float, incr=True):
+        """Change the zoom level in the image label"""
         if self.dataset_loaded_flag:
 
             match zoom:

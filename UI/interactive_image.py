@@ -1,7 +1,7 @@
 from typing import Callable
 
 import cv2
-import numpy
+from numpy import ndarray
 
 from PyQt6.QtCore import Qt, QEvent
 from PyQt6.QtWidgets import QLabel, QWidget
@@ -10,14 +10,14 @@ from matplotlib.backend_bases import MouseButton
 
 from tools import q_pixmap_from_cv_img
 
-from label_tools import label_from_coords, coords_from_label
+from label_tools import Label, label_from_coords, coords_from_label
 
 
 class InteractiveImage(QLabel):
-    """QLabel containing the image, used to easily determine the mouse click position in relation to the image"""
+    """QLabel containing the image, used to easily determine the mouse click position in relation to the image,
+    allows for zooming"""
 
     def __init__(self, rect_drawn_handler: Callable, zoom_handler: Callable):
-        # TODO docstring and comments
         super().__init__()
         self.ori_image = None
         self.image = None
@@ -32,8 +32,8 @@ class InteractiveImage(QLabel):
 
         self.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-    def preprocess_image(self, image: numpy.ndarray):
-        # TODO docstring and comments
+    def preprocess_image(self, image: ndarray):
+        """Resize the image to fit inside the label"""
         new_image_height, new_image_width = list(image.shape[:2])
 
         if new_image_height > self.size().height():
@@ -99,10 +99,11 @@ class InteractiveImage(QLabel):
             self.start_point = None
             self.drawing_mode = False
 
-    def wheelEvent(self, a0):
+    def wheelEvent(self, event):
+        """Reacts to the scroll-wheel event, zooms in or out depending on the direction"""
         if self.interactive_mode:
             zoom = self.zoom_factor
-            if a0.angleDelta().y() > 0:
+            if event.angleDelta().y() > 0:
                 zoom += 0.1
             else:
                 if self.zoom_factor > 0.2:
@@ -112,7 +113,8 @@ class InteractiveImage(QLabel):
             self.zoom_changed(zoom)
             self.zoom_handler(self.zoom_factor)
 
-    def zoom_changed(self, zoom):
+    def zoom_changed(self, zoom: float):
+        """Resizes the image based on the zoom factor"""
         self.zoom_factor = zoom
         img = self.ori_image.copy()
         h, w = img.shape[:2]
@@ -120,23 +122,23 @@ class InteractiveImage(QLabel):
         self.update_image()
 
     def clear_labels(self):
-        # TODO docstring
+        """Recover the original image without annotations"""
         self.image = self.ori_image.copy()
         self.update_image()
 
-    def change_image(self, image):
-        # TODO docstring
+    def change_image(self, image: ndarray):
+        """Load a new image into the label"""
         self.ori_image = self.preprocess_image(image)
         self.image = self.ori_image.copy()
         self.temp_image = self.ori_image.copy()
         self.update_image()
 
     def update_image(self):
-        # TODO docstring
+        """Change image to the content of self.image"""
         self.setPixmap(q_pixmap_from_cv_img(self.image))
 
-    def paint_rect_from_label(self, label, col):
-        # TODO docstring
+    def paint_rect_from_label(self, label: Label, col: tuple):
+        """Paint an annotation based on the label"""
         lu_corner, rb_corner = coords_from_label(label, self.image_size)
 
         lu_corner = (int(lu_corner[0] * self.zoom_factor), int(lu_corner[1] * self.zoom_factor))
