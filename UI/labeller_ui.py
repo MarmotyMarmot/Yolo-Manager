@@ -82,7 +82,7 @@ class LabellerUI(QDialog):
         self.labels_on_checkbox.setChecked(True)
         self.labels_on_checkbox.checkStateChanged.connect(self.toggle_editing)
 
-        self.choose_model_button = QPushButton("Choose model")
+        self.select_model_button = QPushButton("Select model")
         self.fine_tune_button = QPushButton("Fine tune")
         self.fine_tune_all_button = QPushButton("Fine tune all")
         self.fine_tune_all_button.setEnabled(False)
@@ -108,8 +108,8 @@ class LabellerUI(QDialog):
         vertical_layout_left.addWidget(QLabel(""))
 
         vertical_layout_left.addWidget(QLabel("AI"))
-        vertical_layout_left.addWidget(self.choose_model_button)
-        self.choose_model_button.clicked.connect(self.choose_model)
+        vertical_layout_left.addWidget(self.select_model_button)
+        self.select_model_button.clicked.connect(self.select_model)
         vertical_layout_left.addWidget(self.fine_tune_button)
         self.fine_tune_button.clicked.connect(self.fine_tune_current)
         vertical_layout_left.addWidget(self.fine_tune_all_button)
@@ -229,7 +229,7 @@ class LabellerUI(QDialog):
         self.fine_tune_mode = fine_tune_mode
 
     def select_dataset(self):
-        self.dataset_path = QFileDialog.getExistingDirectory(self, "Select Dataset Directory")
+        self.dataset_path = QFileDialog.getExistingDirectory(self, "Select the dataset directory")
         if not self.dataset_path == '':
             self.read_dataset()
         else:
@@ -392,7 +392,7 @@ class LabellerUI(QDialog):
 
         self.visible_class_count = dict()
 
-    def choose_model(self):
+    def select_model(self):
         model_path, _ = QFileDialog.getOpenFileName(
             self,
             "Select model file",
@@ -402,7 +402,7 @@ class LabellerUI(QDialog):
         if model_path is not '':
             self.fine_tuner.set_model(model_path)
         else:
-            Notify(self, 'Choose the model to use it')
+            Notify(self, 'Select the model to use it')
 
     def fine_tune_current(self):
         if self.fine_tuner.model is not None and self.lock_editing_checkbox.isChecked():
