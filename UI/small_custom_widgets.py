@@ -9,6 +9,7 @@ from label_tools import Label
 
 class LabelListButton(QPushButton):
     """QPushButton with easily customizable background colour"""
+
     def __init__(self, text: str, label: Label, background_col, parent, onClickFunc: Callable):
         super().__init__(text, parent)
         self.text = text

@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 import cv2
@@ -5,7 +6,7 @@ import cv2
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QGuiApplication, QIcon
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QPushButton, QLabel, QScrollArea, QWidget, QFileDialog, \
-    QCheckBox, QSizePolicy, QMessageBox
+    QCheckBox, QSizePolicy, QMessageBox, QSpinBox
 
 from UI.yaml_editor import YAMLEditor
 from UI.small_custom_widgets import LabelListButton, StringSpinBox, ProportionSpinBox, SwitchButton, ZoomTool, Notify
@@ -85,7 +86,7 @@ class LabellerUI(QDialog):
         self.select_model_button = QPushButton("Select model")
         self.fine_tune_button = QPushButton("Fine tune")
         self.fine_tune_all_button = QPushButton("Fine tune all")
-        self.fine_tune_all_button.setEnabled(False)
+        # self.fine_tune_all_button.setEnabled(False)
         self.fine_tune_switch = SwitchButton("Mode", self.toggle_fine_tune, ["Average", "Overwrite"])
 
         vertical_layout_left.addWidget(self.read_dataset_button)
@@ -132,6 +133,23 @@ class LabellerUI(QDialog):
         vertical_layout_right = QVBoxLayout()
         vertical_layout_right.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        self.image_name_label = QLabel("Image name")
+        self.image_name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        image_index_label_cont = QHBoxLayout()
+        image_index_label = QLabel("Image Index")
+        image_index_label.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Minimum)
+        image_index_label_cont.addWidget(image_index_label)
+        self.image_index_spinbox = QSpinBox(self)
+        self.image_index_spinbox.setEnabled(False)
+        self.image_index_spinbox.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Minimum)
+        self.image_index_spinbox.setAlignment(Qt.AlignmentFlag.AlignRight)
+        image_index_label_cont.addWidget(self.image_index_spinbox)
+        self.image_quantity_label = QLabel(" / 0")
+        self.image_quantity_label.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+
+        image_index_label_cont.addWidget(self.image_quantity_label)
+
         self.save_button = QPushButton("Save")
         self.next_button = QPushButton("Next")
         self.prev_button = QPushButton("Previous")
@@ -141,12 +159,15 @@ class LabellerUI(QDialog):
         self.copy_button = QPushButton("Copy Labels")
         self.paste_button = QPushButton("Paste Labels")
 
+        self.image_index_spinbox.valueChanged.connect(self.image_index_spinbox_changed)
         self.save_button.clicked.connect(self.save_labels)
         self.next_button.clicked.connect(self.next_image_and_labels)
         self.prev_button.clicked.connect(self.previous_image_and_labels)
         self.copy_button.clicked.connect(self.copy_labels)
         self.paste_button.clicked.connect(self.paste_labels)
 
+        vertical_layout_right.addWidget(self.image_name_label)
+        vertical_layout_right.addLayout(image_index_label_cont)
         vertical_layout_right.addWidget(self.save_button)
         vertical_layout_right.addWidget(self.next_button)
         vertical_layout_right.addWidget(self.prev_button)
@@ -264,6 +285,12 @@ class LabellerUI(QDialog):
         self.class_spin_box.set_strings(class_names_in_order)
         self.class_spin_box.setValue(0)
 
+        self.image_name_label.setText(self.image_files[self.image_index])
+
+        self.image_index_spinbox.setRange(0, len(self.image_files) - 1)
+        self.image_index_spinbox.setEnabled(True)
+        self.image_quantity_label.setText(f"/ {len(self.image_files) - 1}")
+
         self.update_ui()
 
     def validate_dataset(self):
@@ -302,12 +329,21 @@ class LabellerUI(QDialog):
         else:
             Notify(self, '.yaml file not found')
 
+    def image_index_spinbox_changed(self):
+        if self.save_on_change_checkbox.isChecked():
+            self.save_labels()
+        self.image_index = self.image_index_spinbox.value()
+        self.image_name_label.setText(self.image_files[self.image_index])
+        self.update_ui()
+
     def next_image_and_labels(self):
         """Switching to the next image and label, saving if requested"""
         if not self.image_index >= len(self.image_files) - 1:
             if self.save_on_change_checkbox.isChecked():
                 self.save_labels()
             self.image_index += 1
+            self.image_index_spinbox.setValue(self.image_index)
+            self.image_name_label.setText(self.image_files[self.image_index])
             self.update_ui()
             return True
         else:
@@ -319,6 +355,8 @@ class LabellerUI(QDialog):
             if self.save_on_change_checkbox.isChecked():
                 self.save_labels()
             self.image_index -= 1
+            self.image_index_spinbox.setValue(self.image_index)
+            self.image_name_label.setText(self.image_files[self.image_index])
             self.update_ui()
             return True
         else:
@@ -423,6 +461,13 @@ class LabellerUI(QDialog):
     def fine_tune_all(self):
         """At the moment, this function does nothing"""
         print(f'FINE TUNING ALL IN {self.dataset_path}')
+        while self.image_index < len(self.image_files) - 1:
+            self.fine_tune_current()
+            self.image_index += 1
+            self.update_ui()
+            self.update()
+            print('Iter')
+            print(self.image_index)
 
     def update_visible_class_count(self, class_number: str, increment: bool = True) -> int:
         """Incrementing or decrementing the number of visible objects assigned to each class
