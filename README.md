@@ -16,7 +16,7 @@ This tool allows users to read, verify and modify their dataset classes, as well
 - Image annotation
 - Dataset validation
 - Class modification
-- Prepare dataset for training
+- Preparation of dataset for training
 - Use YOLOv5 model to label an image
 - Copy/paste labels from image to image
 
