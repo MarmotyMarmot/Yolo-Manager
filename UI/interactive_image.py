@@ -1,5 +1,3 @@
-from typing import Callable
-
 import cv2
 from numpy import ndarray
 
@@ -17,7 +15,7 @@ class InteractiveImage(QLabel):
     """QLabel containing the image, used to easily determine the mouse click position in relation to the image,
     allows for zooming"""
 
-    def __init__(self, rect_drawn_handler: Callable, zoom_handler: Callable):
+    def __init__(self, rect_drawn_handler, zoom_handler):
         super().__init__()
         self.ori_image = None
         self.image = None

@@ -1,5 +1,4 @@
 import copy
-from typing import Self, Tuple, List
 
 
 class Label:

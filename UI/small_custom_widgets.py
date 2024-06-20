@@ -1,5 +1,3 @@
-from typing import Callable
-
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QPushButton, QSpinBox, QHBoxLayout, QLabel, QToolBar, QVBoxLayout, QMessageBox
@@ -10,7 +8,7 @@ from label_tools import Label
 class LabelListButton(QPushButton):
     """QPushButton with easily customizable background colour"""
 
-    def __init__(self, text: str, label: Label, background_col, parent, onClickFunc: Callable):
+    def __init__(self, text: str, label: Label, background_col, parent, onClickFunc):
         super().__init__(text, parent)
         self.text = text
         self.label = label

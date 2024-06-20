@@ -16,13 +16,6 @@ def main():
 
     window = LabellerUI()
     window.show()
-
-    # automatron = Automate(window)
-    #
-    # dataset_path = r"C:\Users\Antek\PycharmProjects\Yolo-Manager\base"
-    # model_path = r"D:\tools\data\Studia\PBLA\datasets\best_test_dataset\test_dataset\test_dataset\training\best.pt"
-    # automatron.start_ai(dataset_path, model_path)
-
     app.exec()
 
 
